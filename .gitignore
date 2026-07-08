@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-ssr
+data
+.notesgym-test-data
+.env
+.env.*
+*.local
+.DS_Store

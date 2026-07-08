@@ -1,0 +1,7 @@
+node_modules
+dist
+data
+.notesgym-test-data
+.env
+.env.*
+*.local

@@ -1,0 +1,16 @@
+services:
+  notesgym:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      # Change these before first start. Add more users separated by commas.
+      # Format: email:password,email2:password2
+      NOTESGYM_USERS: "parent@example.com:change-me,student@example.com:change-me-too"
+      NOTESGYM_DATA_DIR: "/data"
+    volumes:
+      - notesgym-data:/data
+    restart: unless-stopped
+
+volumes:
+  notesgym-data:
