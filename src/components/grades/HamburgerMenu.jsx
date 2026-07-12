@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Search, FileSpreadsheet, Sparkles, Globe, History, FileText, Archive, GraduationCap, Server } from "lucide-react";
+import { Menu, X, Search, FileSpreadsheet, FileUp, Sparkles, Globe, History, FileText, Archive, GraduationCap, Server } from "lucide-react";
 import { formatGrade } from "./gradeUtils";
 import ReportGenerator from "./ReportGenerator";
 import SelfHostModal from "./SelfHostModal";
@@ -12,7 +12,8 @@ const languages = [
 ];
 
 export default function HamburgerMenu({ 
-  onExport, 
+  onExport,
+  onImport,
   onSearchChange, 
   searchTerm,
   subjects,
@@ -31,6 +32,7 @@ export default function HamburgerMenu({
   const [historyDate, setHistoryDate] = useState("");
   const [showReport, setShowReport] = useState(false);
   const [showSelfHost, setShowSelfHost] = useState(false);
+  const fileInputRef = useRef(null);
 
   const calculateHistoricalAverage = () => {
     if (!historyDate || !notes?.length) return null;
@@ -271,6 +273,35 @@ export default function HamburgerMenu({
               >
                 <FileSpreadsheet className="w-5 h-5" />
                 {t.export}
+              </motion.button>
+
+              {/* Import Button */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    onImport(file);
+                    setIsOpen(false);
+                  }
+                  e.target.value = "";
+                }}
+              />
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full flex items-center justify-center gap-3 px-6 py-4 rounded-xl font-medium mb-3 transition-all"
+                style={{
+                  backgroundColor: '#e0e5eb',
+                  color: '#5a6a7a',
+                  boxShadow: '8px 8px 16px #b8bdc4, -8px -8px 16px #ffffff',
+                }}
+              >
+                <FileUp className="w-5 h-5" />
+                {t.import}
               </motion.button>
 
               {/* PDF Report Button */}

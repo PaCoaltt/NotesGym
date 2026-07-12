@@ -14,6 +14,8 @@ import HamburgerMenu from "../components/grades/HamburgerMenu";
 import ArchiveModal from "../components/grades/ArchiveModal";
 import Tutorial from "../components/grades/Tutorial";
 import { translations } from "../components/translations";
+import { parseNotesFromCsv } from "../utils/csvNotes";
+import { toast } from "@/components/ui/use-toast";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -183,6 +185,46 @@ export default function Dashboard() {
     link.click();
   };
 
+  const handleImport = async (file) => {
+    try {
+      const text = await file.text();
+      const { notes: parsedNotes, errors } = parseNotesFromCsv(text);
+
+      if (errors.some((e) => e.message === "invalidFormat")) {
+        toast({ title: t.importError, description: t.importInvalidFormat, variant: "destructive" });
+        return;
+      }
+
+      if (parsedNotes.length === 0) {
+        toast({ title: t.importError, description: t.importNoNotes, variant: "destructive" });
+        return;
+      }
+
+      if (!window.confirm(`${parsedNotes.length} ${t.importConfirm}`)) return;
+
+      let imported = 0;
+      for (const note of parsedNotes) {
+        await base44.entities.Note.create(note);
+        imported++;
+      }
+
+      await refetch();
+
+      if (errors.length > 0) {
+        toast({
+          title: `${imported} ${t.importPartial}`,
+          description: `${errors.length}`,
+        });
+      } else {
+        toast({
+          title: `${imported} ${t.importSuccess}`,
+        });
+      }
+    } catch {
+      toast({ title: t.importError, variant: "destructive" });
+    }
+  };
+
   return (
     <div className="min-h-screen p-4 md:p-8" style={{ backgroundColor: '#e0e5eb' }}>
       <div className="max-w-7xl mx-auto">
@@ -247,6 +289,7 @@ export default function Dashboard() {
             {menuEnabled && (
               <HamburgerMenu
                 onExport={handleExport}
+                onImport={handleImport}
                 onSearchChange={setSearchTerm}
                 searchTerm={searchTerm}
                 subjects={subjects}

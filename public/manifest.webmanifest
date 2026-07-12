@@ -1,0 +1,21 @@
+{
+  "name": "NotesGym",
+  "short_name": "NotesGym",
+  "description": "Suivi et calcul de moyennes scolaires",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#e0e5eb",
+  "theme_color": "#b8a0d0",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

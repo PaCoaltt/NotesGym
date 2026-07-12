@@ -330,6 +330,7 @@ function contentType(file) {
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
     ".ico": "image/x-icon",
+    ".webmanifest": "application/manifest+json",
   }[ext] || "application/octet-stream";
 }
 
