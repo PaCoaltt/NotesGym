@@ -43,10 +43,16 @@ async function readJson(file, fallback) {
   }
 }
 
+let writeQueue = Promise.resolve();
+
 async function writeJson(file, value) {
-  const tmp = `${file}.tmp`;
-  await fs.writeFile(tmp, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-  await fs.rename(tmp, file);
+  const job = async () => {
+    const tmp = `${file}.tmp`;
+    await fs.writeFile(tmp, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+    await fs.rename(tmp, file);
+  };
+  writeQueue = writeQueue.then(job, job);
+  return writeQueue;
 }
 
 function parseSeedUsers() {
