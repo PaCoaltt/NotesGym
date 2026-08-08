@@ -49,6 +49,11 @@ export const base44 = {
           method: "PATCH",
           body: JSON.stringify(data),
         }),
+      archiveYears: (years) =>
+        apiRequest("/api/notes/archive", {
+          method: "PATCH",
+          body: JSON.stringify({ years }),
+        }),
       delete: (id) =>
         apiRequest(`/api/notes/${encodeURIComponent(id)}`, {
           method: "DELETE",
