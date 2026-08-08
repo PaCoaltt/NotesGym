@@ -263,6 +263,32 @@ async function handleApi(req, res, url) {
       return sendJson(res, 201, note);
     }
 
+    if (url.pathname === "/api/notes/archive" && req.method === "PATCH") {
+      const user = await requireUser(req, res);
+      if (!user) return;
+
+      const body = await readBody(req);
+      const years = Array.isArray(body.years)
+        ? new Set(body.years.map((year) => String(year).trim()).filter(Boolean))
+        : new Set();
+      if (years.size === 0) return sendError(res, 400, "At least one school year is required");
+
+      const notes = await readJson(NOTES_FILE, []);
+      const updatedAt = new Date().toISOString();
+      let archivedCount = 0;
+
+      for (const note of notes) {
+        if (note.created_by === user.email && years.has(note.annee) && !note.archived) {
+          note.archived = true;
+          note.updated_date = updatedAt;
+          archivedCount += 1;
+        }
+      }
+
+      if (archivedCount > 0) await writeJson(NOTES_FILE, notes);
+      return sendJson(res, 200, { archivedCount });
+    }
+
     const noteMatch = url.pathname.match(/^\/api\/notes\/([^/]+)$/);
     if (noteMatch && req.method === "PATCH") {
       const user = await requireUser(req, res);
