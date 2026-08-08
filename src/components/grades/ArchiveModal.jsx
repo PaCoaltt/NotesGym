@@ -17,12 +17,13 @@ export default function ArchiveModal({ years, notes, onClose, onSuccess, t }) {
     if (selectedYears.length === 0) return;
     setIsArchiving(true);
 
-    const notesToArchive = notes.filter(n => selectedYears.includes(n.annee) && !n.archived);
-    await Promise.all(notesToArchive.map(n => base44.entities.Note.update(n.id, { archived: true })));
-
-    setIsArchiving(false);
-    onSuccess();
-    onClose();
+    try {
+      await base44.entities.Note.archiveYears(selectedYears);
+      onSuccess();
+      onClose();
+    } finally {
+      setIsArchiving(false);
+    }
   };
 
   const noteCountForYear = (year) => notes.filter(n => n.annee === year && !n.archived).length;
