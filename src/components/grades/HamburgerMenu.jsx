@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Search, FileSpreadsheet, FileUp, Sparkles, Globe, History, Archive, GraduationCap } from "lucide-react";
+import { Menu, X, Search, FileSpreadsheet, FileUp, Sparkles, Globe, History, Archive, GraduationCap, Lightbulb } from "lucide-react";
 import { formatGrade } from "./gradeUtils";
 
 const languages = [
@@ -24,6 +24,7 @@ export default function HamburgerMenu({
   notes,
   onArchive,
   onRedoTutorial,
+  onInsights,
   t
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -100,6 +101,11 @@ export default function HamburgerMenu({
                   <X className="w-5 h-5" style={{ color: '#8a9aa8' }} />
                 </motion.button>
               </div>
+
+              {/* Insights navigation */}
+              <motion.button whileTap={{ scale: 0.98 }} onClick={() => { setIsOpen(false); onInsights(); }} className="w-full mb-6 p-3 rounded-xl font-semibold text-left flex items-center gap-3" style={{ color: '#5a6a7a', boxShadow: '4px 4px 8px #b8bdc4, -4px -4px 8px #ffffff' }}>
+                <Lightbulb className="w-5 h-5" /> Insights
+              </motion.button>
 
               {/* Language Selector */}
               <div className="mb-6">
