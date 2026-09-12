@@ -16,8 +16,15 @@ import Tutorial from "../components/grades/Tutorial";
 import { translations } from "../components/translations";
 import { parseNotesFromCsv } from "../utils/csvNotes";
 import { toast } from "@/components/ui/use-toast";
+import { useNavigate } from "react-router-dom";
+import { weightedAverage } from "@/lib/analytics/statistics";
+import { calculateCompensation } from "@/lib/analytics/compensation";
+import { generateInsights } from "@/lib/analytics/insights";
+import InsightCard from "@/components/insights/InsightCard";
+import { insightsTranslations } from "@/components/insights/insightsTranslations";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [selectedYear, setSelectedYear] = useState("all");
   const [selectedSemester, setSelectedSemester] = useState("all");
@@ -29,7 +36,7 @@ export default function Dashboard() {
   const [dreamNotes, setDreamNotes] = useState({});
   const [showDreamNoteModal, setShowDreamNoteModal] = useState(false);
   const [dreamNoteSubject, setDreamNoteSubject] = useState(null);
-  const [language, setLanguage] = useState('fr');
+  const [language, setLanguage] = useState(() => localStorage.getItem('notesgym_language') || 'fr');
   const [gradingSystem, setGradingSystem] = useState('swiss'); // swiss, french, american
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [archiveMode, setArchiveMode] = useState(false);
@@ -72,50 +79,11 @@ export default function Dashboard() {
   // Filtrer les notes à inclure dans les calculs (exclure celles marquées comme exclue_bulletin)
   const notesForCalculations = filteredNotes.filter(note => !note.exclue_bulletin);
 
-  const calculateAverage = (notesList) => {
-    if (notesList.length === 0) return 0;
-    const total = notesList.reduce((sum, n) => sum + (n.note * (n.coefficient || 1)), 0);
-    const totalCoef = notesList.reduce((sum, n) => sum + (n.coefficient || 1), 0);
-    return (total / totalCoef).toFixed(2);
-  };
-
-  // Calculate compensation points (GBJB rule) - basé sur les moyennes par matière
-  const roundToHalf = (value) => Math.round(value * 2) / 2;
-
-  const calculateCompensation = (notesList) => {
-    if (notesList.length === 0) return { negativeSum: 0, positiveSum: 0, doubleNegative: 0, isCompensated: null };
-    
-    // Grouper les notes par matière
-    const bySubject = notesList.reduce((acc, note) => {
-      const key = note.matiere.trim();
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(note);
-      return acc;
-    }, {});
-    
-    let negativeSum = 0;
-    let positiveSum = 0;
-    
-    // Calculer la compensation sur la moyenne de chaque matière (arrondie au demi)
-    Object.values(bySubject).forEach(subjectNotes => {
-      const avg = roundToHalf(parseFloat(calculateAverage(subjectNotes)));
-      const diff = avg - 4;
-      
-      if (diff < 0) {
-        negativeSum += Math.abs(diff);
-      } else if (diff > 0) {
-        positiveSum += diff;
-      }
-    });
-    
-    const doubleNegative = negativeSum * 2;
-    const isCompensated = doubleNegative <= positiveSum;
-    
-    return { negativeSum, positiveSum, doubleNegative, isCompensated };
-  };
+  const calculateAverage = (notesList) => (weightedAverage(notesList) ?? 0).toFixed(2);
 
   const globalAverage = calculateAverage(notesForCalculations);
   const compensation = calculateCompensation(notesForCalculations);
+  const mainInsight = generateInsights(notesForCalculations)[0];
   
   const subjectAverages = filteredNotes.reduce((acc, note) => {
     const key = note.matiere.trim();
@@ -299,12 +267,13 @@ export default function Dashboard() {
                 }}
                 dreamNotes={dreamNotes}
                 language={language}
-                onLanguageChange={setLanguage}
+                onLanguageChange={(nextLanguage) => { setLanguage(nextLanguage); localStorage.setItem('notesgym_language', nextLanguage); }}
                 gradingSystem={gradingSystem}
                 onGradingSystemChange={setGradingSystem}
                 notes={activeNotes}
                 onArchive={() => setShowArchiveModal(true)}
                 onRedoTutorial={handleRedoTutorial}
+                onInsights={() => navigate('/Insights', { state: { language, filter: { year: selectedYear, semester: selectedSemester } } })}
                 t={t}
                 />
             )}
@@ -319,6 +288,8 @@ export default function Dashboard() {
             icon={Award}
             gradingSystem={gradingSystem}
           />
+
+          {mainInsight && <InsightCard compact insight={mainInsight} t={insightsTranslations[language]} onOpen={() => navigate('/Insights', { state: { language, filter: { year: selectedYear, semester: selectedSemester } } })} />}
 
           <CompensationCard compensation={compensation} t={t} />
 
