@@ -1,7 +1,8 @@
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Search, FileSpreadsheet, FileUp, Sparkles, Globe, History, Archive, GraduationCap, Lightbulb } from "lucide-react";
-import { formatGrade } from "./gradeUtils";
+import { Menu, X, Search, FileSpreadsheet, FileUp, Sparkles, Globe, History, Archive, GraduationCap, Lightbulb, BarChart3 } from "lucide-react";
+import ReplayTimeline from "@/components/statistics/ReplayTimeline";
+import { statisticsTranslations } from "@/components/statistics/statisticsTranslations";
 
 const languages = [
   { code: 'fr', name: 'Français', flag: '🇫🇷' },
@@ -25,22 +26,14 @@ export default function HamburgerMenu({
   onArchive,
   onRedoTutorial,
   onInsights,
+  onStatistics,
+  replayFilters,
   t
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [historyDate, setHistoryDate] = useState("");
   const fileInputRef = useRef(null);
-
-  const calculateHistoricalAverage = () => {
-    if (!historyDate || !notes?.length) return null;
-    const filtered = notes.filter(n => !n.exclue_bulletin && n.date && n.date <= historyDate);
-    if (filtered.length === 0) return null;
-    const total = filtered.reduce((sum, n) => sum + (n.note * (n.coefficient || 1)), 0);
-    const totalCoef = filtered.reduce((sum, n) => sum + (n.coefficient || 1), 0);
-    return { avg: total / totalCoef, count: filtered.length };
-  };
-
-  const historyResult = historyDate ? calculateHistoricalAverage() : null;
+  const replayT = { ...t, ...statisticsTranslations[language] };
 
   return (
     <>
@@ -105,6 +98,9 @@ export default function HamburgerMenu({
               {/* Insights navigation */}
               <motion.button whileTap={{ scale: 0.98 }} onClick={() => { setIsOpen(false); onInsights(); }} className="w-full mb-6 p-3 rounded-xl font-semibold text-left flex items-center gap-3" style={{ color: '#5a6a7a', boxShadow: '4px 4px 8px #b8bdc4, -4px -4px 8px #ffffff' }}>
                 <Lightbulb className="w-5 h-5" /> Insights
+              </motion.button>
+              <motion.button whileTap={{ scale: 0.98 }} onClick={() => { setIsOpen(false); onStatistics(); }} className="w-full -mt-3 mb-6 p-3 rounded-xl font-semibold text-left flex items-center gap-3" style={{ color: '#5a6a7a', boxShadow: '4px 4px 8px #b8bdc4, -4px -4px 8px #ffffff' }}>
+                <BarChart3 className="w-5 h-5" /> {replayT.title}
               </motion.button>
 
               {/* Language Selector */}
@@ -214,49 +210,7 @@ export default function HamburgerMenu({
                         <History className="inline w-4 h-4 mr-2" />
                         {t.historyTitle}
                       </label>
-                      <input
-                        type="date"
-                        value={historyDate}
-                        onChange={(e) => setHistoryDate(e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl font-medium transition-all focus:outline-none mb-3"
-                        style={{
-                          backgroundColor: '#e0e5eb',
-                          color: '#5a6a7a',
-                          boxShadow: 'inset 3px 3px 6px #b8bdc4, inset -3px -3px 6px #ffffff',
-                        }}
-                      />
-                      {historyDate && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="p-4 rounded-xl"
-                          style={{
-                            backgroundColor: '#e0e5eb',
-                            boxShadow: '6px 6px 12px #b8bdc4, -6px -6px 12px #ffffff',
-                          }}
-                        >
-                          {historyResult ? (
-                            <>
-                              <p className="text-xs mb-1" style={{ color: '#8a9aa8' }}>
-                                {t.historyResult} {historyDate}
-                              </p>
-                              <p className="text-3xl font-bold" style={{ color: '#5a6a7a' }}>
-                                {formatGrade(historyResult.avg, gradingSystem)}
-                                <span className="text-lg font-medium ml-1" style={{ color: '#8a9aa8' }}>
-                                  {gradingSystem === 'swiss' ? '/6' : gradingSystem === 'french' ? '/20' : ''}
-                                </span>
-                              </p>
-                              <p className="text-xs mt-1" style={{ color: '#9aabb8' }}>
-                                {historyResult.count} {t.historyNoteCount}
-                              </p>
-                            </>
-                          ) : (
-                            <p className="text-sm text-center" style={{ color: '#8a9aa8' }}>
-                              {t.historyNoNotes}
-                            </p>
-                          )}
-                        </motion.div>
-                      )}
+                      <ReplayTimeline notes={notes} date={historyDate} onDateChange={setHistoryDate} gradingSystem={gradingSystem} language={language} filters={replayFilters} t={replayT} compact />
                     </div>
 
               {/* Export Button */}

@@ -270,10 +270,12 @@ export default function Dashboard() {
                 onLanguageChange={(nextLanguage) => { setLanguage(nextLanguage); localStorage.setItem('notesgym_language', nextLanguage); }}
                 gradingSystem={gradingSystem}
                 onGradingSystemChange={setGradingSystem}
-                notes={activeNotes}
+                notes={visibleNotes}
                 onArchive={() => setShowArchiveModal(true)}
                 onRedoTutorial={handleRedoTutorial}
                 onInsights={() => navigate('/Insights', { state: { language, filter: { year: selectedYear, semester: selectedSemester } } })}
+                onStatistics={() => navigate('/Statistics', { state: { language, gradingSystem, archived: archiveMode, filter: { year: selectedYear, semester: selectedSemester } } })}
+                replayFilters={{ year: selectedYear, semester: selectedSemester, archived: archiveMode }}
                 t={t}
                 />
             )}

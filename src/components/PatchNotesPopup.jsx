@@ -1,120 +1,32 @@
 import { useEffect, useState } from "react";
-import { BarChart3, Check, FlaskConical, Sparkles, Trash2 } from "lucide-react";
+import { BarChart3, CalendarDays, Check, History, Trophy } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-
-const PATCH_ID = "september-launch";
-
+const PATCH_ID = "statistics-replay-launch";
 const getPatchStorageKey = (userId) => `notesgym_patch_${PATCH_ID}_${userId}`;
-
+const copy = {
+  fr: { eyebrow:"Nouveautés NotesGym", title:"Statistiques et Replay", subtitle:"Explorez votre semestre sous un nouvel angle.", discover:"Découvrir", items:[
+    ["Statistiques","Une nouvelle page permet d’explorer moyenne, médiane, répartition des notes et statistiques par matière."],
+    ["Records","NotesGym détecte vos meilleures notes, séries, matières régulières et progressions marquantes."],
+    ["Heatmap","Une vue temporelle révèle la répartition de vos évaluations, les périodes chargées et vos résultats."],
+    ["Replay","Choisissez une date pour retrouver votre moyenne, vos matières et votre compensation à cet instant."],
+  ]},
+  en: { eyebrow:"What’s new in NotesGym", title:"Statistics and Replay", subtitle:"Explore your semester from a new angle.", discover:"Discover", items:[
+    ["Statistics","A new page lets you explore averages, median, grade distribution and subject statistics."],
+    ["Records","NotesGym now detects best grades, streaks, consistent subjects and notable progress."],
+    ["Heatmap","A timeline view reveals assessment distribution, busy periods and your results."],
+    ["Replay","Choose a date to recover your average, subjects and compensation at that moment."],
+  ]},
+  de: { eyebrow:"Neu in NotesGym", title:"Statistiken und Replay", subtitle:"Entdecke dein Semester aus einer neuen Perspektive.", discover:"Entdecken", items:[
+    ["Statistiken","Eine neue Seite zeigt Durchschnitt, Median, Notenverteilung und Fachstatistiken."],
+    ["Rekorde","NotesGym erkennt Bestnoten, Serien, regelmäßige Fächer und besondere Fortschritte."],
+    ["Heatmap","Eine Zeitansicht zeigt die Verteilung der Prüfungen, intensive Phasen und Ergebnisse."],
+    ["Replay","Wähle ein Datum und sieh Durchschnitt, Fächer und Kompensation zu diesem Zeitpunkt."],
+  ]},
+};
+const icons=[BarChart3,Trophy,CalendarDays,History];
 export default function PatchNotesPopup({ user }) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const storageKey = getPatchStorageKey(user.id);
-    if (localStorage.getItem(storageKey)) return;
-
-    // The patch note is considered seen as soon as it is displayed, so a refresh
-    // cannot show it twice to the same signed-in user.
-    localStorage.setItem(storageKey, "1");
-    setIsOpen(true);
-  }, [user?.id]);
-
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="!z-[80] max-h-[90vh] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto border-0 bg-[#e0e5eb] p-0 text-slate-600 shadow-[18px_18px_40px_#aeb4bc,-18px_-18px_40px_#ffffff] sm:rounded-3xl">
-        <div className="overflow-hidden rounded-t-3xl bg-gradient-to-br from-slate-600 to-slate-800 px-6 py-7 text-white sm:px-8">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/20">
-            <Sparkles className="h-6 w-6" aria-hidden="true" />
-          </div>
-          <DialogHeader>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">
-              Nouveautés
-            </p>
-            <DialogTitle className="text-2xl leading-tight text-white sm:text-3xl">
-              Notes de patch - September Launch
-            </DialogTitle>
-            <DialogDescription className="text-sm text-slate-300">
-              Découvrez ce qui change dans cette nouvelle version de NotesGym.
-            </DialogDescription>
-          </DialogHeader>
-        </div>
-
-        <div className="space-y-7 px-6 py-7 sm:px-8">
-          <section aria-labelledby="major-changes-title">
-            <div className="mb-4 flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e0e5eb] shadow-[4px_4px_8px_#b8bdc4,-4px_-4px_8px_#ffffff]">
-                <BarChart3 className="h-5 w-5" aria-hidden="true" />
-              </span>
-              <div>
-                <h3 id="major-changes-title" className="font-bold text-slate-700">
-                  Modifications majeures
-                </h3>
-                <p className="text-sm font-semibold text-slate-500">Insights et ML !</p>
-              </div>
-            </div>
-
-            <div className="space-y-4 border-l-2 border-slate-400/40 pl-4 text-sm leading-relaxed text-slate-600 sm:text-base">
-              <p>
-                NotesGym devient plus intelligent avec l’arrivée des <strong>Insights</strong>, un
-                nouveau moteur d’analyse entièrement local et sans IA.
-              </p>
-              <p>
-                Il analyse vos résultats pour détecter les <strong>tendances, progressions,
-                baisses, variations inhabituelles et matières à surveiller</strong>, tout en
-                identifiant les résultats ayant le plus d’impact sur votre moyenne et votre
-                compensation.
-              </p>
-              <div className="flex gap-3 rounded-2xl bg-slate-700/5 p-4">
-                <FlaskConical className="mt-0.5 h-5 w-5 shrink-0 text-slate-600" aria-hidden="true" />
-                <p>
-                  Une nouvelle <strong>Simulation du semestre</strong>, basée sur la méthode de
-                  Monte-Carlo, génère 10 000 scénarios à partir de vos résultats pour estimer
-                  votre moyenne future, votre probabilité de compensation et les principaux
-                  risques par matière.
-                </p>
-              </div>
-              <p>
-                Les estimations s’adaptent automatiquement à vos nouvelles notes et indiquent
-                leur niveau de confiance lorsque peu de données sont disponibles.
-              </p>
-            </div>
-          </section>
-
-          <section aria-labelledby="minor-changes-title">
-            <div className="mb-3 flex items-center gap-3">
-              <Trash2 className="h-5 w-5 text-slate-500" aria-hidden="true" />
-              <h3 id="minor-changes-title" className="font-bold text-slate-700">
-                Modifications mineures
-              </h3>
-            </div>
-            <ul className="space-y-2 pl-8 text-sm text-slate-600 sm:text-base">
-              <li className="list-disc">Suppression de la fonctionnalité « Rapport PDF »</li>
-              <li className="list-disc">Suppression du bouton inutile « Auto-héberger »</li>
-            </ul>
-          </section>
-
-          <DialogFooter>
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-700 px-6 py-3 font-semibold text-white shadow-lg transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-600 focus-visible:ring-offset-2 sm:w-auto"
-            >
-              <Check className="h-4 w-4" aria-hidden="true" />
-              J’ai compris
-            </button>
-          </DialogFooter>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
+  const [isOpen,setIsOpen]=useState(false); const language=localStorage.getItem("notesgym_language")||"fr"; const t=copy[language]||copy.fr;
+  useEffect(()=>{if(!user?.id)return;const key=getPatchStorageKey(user.id);if(localStorage.getItem(key))return;localStorage.setItem(key,"1");setIsOpen(true);},[user?.id]);
+  return <Dialog open={isOpen} onOpenChange={setIsOpen}><DialogContent className="!z-[80] max-h-[90vh] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto border-0 bg-[#e0e5eb] p-0 text-slate-600 shadow-[18px_18px_40px_#aeb4bc,-18px_-18px_40px_#ffffff] sm:rounded-3xl"><div className="rounded-t-3xl bg-gradient-to-br from-slate-600 to-slate-800 px-6 py-7 text-white sm:px-8"><DialogHeader><p className="text-xs font-semibold uppercase tracking-[.2em] text-slate-300">{t.eyebrow}</p><DialogTitle className="text-2xl text-white sm:text-3xl">{t.title}</DialogTitle><DialogDescription className="text-slate-300">{t.subtitle}</DialogDescription></DialogHeader></div><div className="space-y-4 px-6 py-7 sm:px-8">{t.items.map(([title,description],index)=>{const Icon=icons[index];return <section className="flex gap-4" key={title}><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-[4px_4px_8px_#b8bdc4,-4px_-4px_8px_#ffffff]"><Icon className="h-5 w-5" aria-hidden="true"/></span><div><h3 className="font-bold text-slate-700">{title}</h3><p className="text-sm leading-relaxed">{description}</p></div></section>})}<DialogFooter><button type="button" onClick={()=>setIsOpen(false)} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-700 px-6 py-3 font-semibold text-white hover:bg-slate-800 focus-visible:ring-2 sm:w-auto"><Check className="h-4 w-4" aria-hidden="true"/>{t.discover}</button></DialogFooter></div></DialogContent></Dialog>;
 }
