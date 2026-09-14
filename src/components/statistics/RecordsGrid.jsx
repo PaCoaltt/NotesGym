@@ -1,0 +1,10 @@
+import { formatGrade } from "@/components/grades/gradeUtils";
+
+export default function RecordsGrid({ records, gradingSystem, language, t }) {
+  const grade = (value) => formatGrade(value, gradingSystem); const locale=language==="de"?"de-CH":language==="en"?"en-GB":"fr-CH";
+  const month = (item) => item ? `${new Date(`${item.month}-02T12:00:00`).toLocaleDateString(locale,{month:"long",year:"numeric"})} · ${grade(item.average)}` : null;
+  const subject = (item, detail="average") => item ? `${item.subject} · ${detail === "volatility" ? item.volatility.value.toFixed(2) : detail === "slope" ? `${item.trend.slope>0?"+":""}${item.trend.slope.toFixed(2)}` : grade(item.average)}` : null;
+  const change = (item) => item ? `${grade(item.previous.note)} → ${grade(item.current.note)} · ${item.subject}` : null;
+  const entries=[[t.best,records.bestGrade==null?null:grade(records.bestGrade)],[t.worst,records.worstGrade==null?null:grade(records.worstGrade)],[t.streak5,records.streak5||null],[t.streak4,records.streak4||null],[t.bestMonth,month(records.bestMonth)],[t.busiestMonth,records.busiestMonth?`${new Date(`${records.busiestMonth.month}-02T12:00:00`).toLocaleDateString(locale,{month:"long",year:"numeric"})} · ${records.busiestMonth.count}`:null],[t.bestSubject,subject(records.bestSubject)],[t.worstSubject,subject(records.worstSubject)],[t.mostStable,subject(records.mostStable,"volatility")],[t.mostVolatile,subject(records.mostVolatile,"volatility")],[t.progress,subject(records.strongestProgress,"slope")],[t.decline,subject(records.strongestDecline,"slope")],[t.improvement,change(records.biggestImprovement)],[t.drop,change(records.biggestDrop)],[t.rebound,change(records.bestRebound)]].filter(([,value])=>value!=null);
+  return <section><h2 className="section-title">{t.records}</h2>{entries.length < 4 && <p className="text-sm text-slate-500 mb-3">{t.insufficientRecords}</p>}<div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">{entries.map(([label,value])=><div className="neu-card p-4" key={label}><p className="text-xs text-slate-500">{label}</p><p className="font-bold text-slate-700 mt-1">{value}</p></div>)}</div></section>;
+}
