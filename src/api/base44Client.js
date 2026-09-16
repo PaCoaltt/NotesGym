@@ -54,6 +54,11 @@ export const base44 = {
           method: "PATCH",
           body: JSON.stringify({ years }),
         }),
+      setSubjectReportStatus: (subject, excluded) =>
+        apiRequest("/api/notes/subject-report-status", {
+          method: "PATCH",
+          body: JSON.stringify({ subject, excluded }),
+        }),
       delete: (id) =>
         apiRequest(`/api/notes/${encodeURIComponent(id)}`, {
           method: "DELETE",

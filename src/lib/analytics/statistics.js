@@ -6,11 +6,13 @@ export const validCoefficient = (value) => {
 };
 
 export const usableNotes = (notes = []) => notes.filter((note) =>
-  !note?.exclue_bulletin && Number.isFinite(Number(note?.note))
+  !note?.exclue_bulletin && !note?.matiere_hors_bulletin && Number.isFinite(Number(note?.note))
 );
 
-export function weightedAverage(notes = []) {
-  const valid = usableNotes(notes);
+export function weightedAverage(notes = [], { includeExcluded = false } = {}) {
+  const valid = includeExcluded
+    ? notes.filter((note) => Number.isFinite(Number(note?.note)))
+    : usableNotes(notes);
   if (!valid.length) return null;
   const weight = valid.reduce((sum, note) => sum + validCoefficient(note.coefficient), 0);
   return valid.reduce((sum, note) => sum + Number(note.note) * validCoefficient(note.coefficient), 0) / weight;

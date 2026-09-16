@@ -19,7 +19,7 @@ export default function Insights() {
   const t = insightsTranslations[language] || insightsTranslations.fr;
   const filter = location.state?.filter || {};
   const { data: allNotes = [], isLoading } = useQuery({ queryKey: ["notes"], queryFn: () => base44.entities.Note.list() });
-  const notes = useMemo(() => allNotes.filter((note) => !note.archived && !note.exclue_bulletin && (filter.year === "all" || !filter.year || note.annee === filter.year) && (filter.semester === "all" || !filter.semester || note.semestre === filter.semester)), [allNotes, filter.year, filter.semester]);
+  const notes = useMemo(() => allNotes.filter((note) => !note.archived && !note.exclue_bulletin && !note.matiere_hors_bulletin && (filter.year === "all" || !filter.year || note.annee === filter.year) && (filter.semester === "all" || !filter.semester || note.semestre === filter.semester)), [allNotes, filter.year, filter.semester]);
   const analysis = useMemo(() => analyzeSemester(notes), [notes]);
   const insights = useMemo(() => generateInsights(notes).slice(0, 5), [notes]);
   const initialSettings = useMemo(() => Object.fromEntries(analysis.subjects.map((item) => [item.subject, { remaining: 2, coefficient: Number(item.averageCoefficient.toFixed(1)) }])), [analysis.subjects]);

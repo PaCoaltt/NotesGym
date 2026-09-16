@@ -4,7 +4,7 @@ import { formatGrade } from "@/components/grades/gradeUtils";
 
 const day = 86400000;
 export default function ReplayTimeline({ notes, date, onDateChange, gradingSystem, language, filters={ year: undefined, semester: undefined, archived: undefined }, t, compact=false }) {
-  const dates=useMemo(()=>notes.filter(n=>n.date&&!n.exclue_bulletin&&(!filters.year||filters.year==="all"||n.annee===filters.year)&&(!filters.semester||filters.semester==="all"||n.semestre===filters.semester)&&(typeof filters.archived!=="boolean"||Boolean(n.archived)===filters.archived)).map(n=>n.date).sort(),[notes,filters]); const min=dates[0]; const max=dates.at(-1);
+  const dates=useMemo(()=>notes.filter(n=>n.date&&!n.exclue_bulletin&&!n.matiere_hors_bulletin&&(!filters.year||filters.year==="all"||n.annee===filters.year)&&(!filters.semester||filters.semester==="all"||n.semestre===filters.semester)&&(typeof filters.archived!=="boolean"||Boolean(n.archived)===filters.archived)).map(n=>n.date).sort(),[notes,filters]); const min=dates[0]; const max=dates.at(-1);
   const effectiveDate=date&&date>=min&&date<=max?date:max; const value=effectiveDate ? Math.round((new Date(`${effectiveDate}T12:00:00`).getTime()-new Date(`${min}T12:00:00`).getTime())/day) : 0; const maxDays=min&&max?Math.max(0,Math.round((new Date(`${max}T12:00:00`).getTime()-new Date(`${min}T12:00:00`).getTime())/day)):0;
   const state=useMemo(()=>effectiveDate?replayAtDate(notes,{...filters,date:effectiveDate}):null,[notes,effectiveDate,filters]); const evolution=useMemo(()=>replayEvolution(notes,filters),[notes,filters]);
   const grade=v=>v==null?"—":formatGrade(v,gradingSystem); const locale=language==="de"?"de-CH":language==="en"?"en-GB":"fr-CH";

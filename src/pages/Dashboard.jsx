@@ -76,10 +76,13 @@ export default function Dashboard() {
     return true;
   });
 
-  // Filtrer les notes à inclure dans les calculs (exclure celles marquées comme exclue_bulletin)
-  const notesForCalculations = filteredNotes.filter(note => !note.exclue_bulletin);
+  // Les exclusions individuelles et les matières hors bulletin ne participent pas aux résultats globaux.
+  const notesForCalculations = filteredNotes.filter(note =>
+    !note.exclue_bulletin && !note.matiere_hors_bulletin
+  );
 
-  const calculateAverage = (notesList) => (weightedAverage(notesList) ?? 0).toFixed(2);
+  const calculateAverage = (notesList, includeExcluded = false) =>
+    (weightedAverage(notesList, { includeExcluded }) ?? 0).toFixed(2);
 
   const globalAverage = calculateAverage(notesForCalculations);
   const compensation = calculateCompensation(notesForCalculations);
@@ -94,6 +97,14 @@ export default function Dashboard() {
 
   const years = [...new Set(visibleNotes.map(n => n.annee))];
   const subjects = [...new Set(visibleNotes.map(n => n.matiere.trim()))];
+  const excludedSubjects = subjects.filter(subject =>
+    visibleNotes.some(note => note.matiere.trim() === subject && note.matiere_hors_bulletin)
+  );
+
+  const handleSubjectReportStatus = async (subject, excluded) => {
+    await base44.entities.Note.setSubjectReportStatus(subject, excluded);
+    await refetch();
+  };
 
   const handleExport = () => {
     // Préparer les données d'export
@@ -124,7 +135,7 @@ export default function Dashboard() {
     exportData.push(['Moyennes par matière']);
     exportData.push(['Matière', 'Moyenne']);
     Object.entries(subjectAverages).forEach(([subject, subjectNotes]) => {
-      const avg = calculateAverage(subjectNotes.filter(n => !n.exclue_bulletin));
+      const avg = calculateAverage(subjectNotes, true);
       exportData.push([subject, `="${String(avg).replace('.', ',')}"`]);
     });
     
@@ -355,6 +366,7 @@ export default function Dashboard() {
             setEditingNote(note);
             setShowAddModal(true);
           }}
+          onToggleSubjectExclusion={handleSubjectReportStatus}
           projectionMode={menuEnabled}
           dreamNotes={dreamNotes}
           onAddDreamNote={(subject) => {
@@ -381,6 +393,7 @@ export default function Dashboard() {
               }}
               gradingSystem={gradingSystem}
               existingSubjects={subjects}
+              excludedSubjects={excludedSubjects}
               t={t}
             />
           )}
@@ -407,8 +420,8 @@ export default function Dashboard() {
           {showDreamNoteModal && dreamNoteSubject && (
             <DreamNoteModal
               subject={dreamNoteSubject}
-              currentAverage={calculateAverage(subjectAverages[dreamNoteSubject]?.filter(n => !n.exclue_bulletin) || [])}
-              currentTotalCoef={(subjectAverages[dreamNoteSubject]?.filter(n => !n.exclue_bulletin) || []).reduce((sum, n) => sum + (n.coefficient || 1), 0)}
+              currentAverage={calculateAverage(subjectAverages[dreamNoteSubject] || [], true)}
+              currentTotalCoef={(subjectAverages[dreamNoteSubject] || []).reduce((sum, n) => sum + (n.coefficient || 1), 0)}
               existingDreamNote={dreamNotes[dreamNoteSubject]}
               onClose={() => {
                 setShowDreamNoteModal(false);

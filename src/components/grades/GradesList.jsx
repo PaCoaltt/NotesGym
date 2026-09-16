@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trash2, ChevronDown, EyeOff, Edit, Sparkles } from "lucide-react";
+import { Trash2, ChevronDown, EyeOff, Eye, Edit, Sparkles } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import GradeChart from "./GradeChart";
 import { formatGrade } from "./gradeUtils";
 
-export default function GradesList({ notes, isLoading, subjectAverages, calculateAverage, onRefetch, onEdit, projectionMode, dreamNotes, onAddDreamNote, gradingSystem, t }) {
+export default function GradesList({ notes, isLoading, subjectAverages, calculateAverage, onRefetch, onEdit, onToggleSubjectExclusion, projectionMode, dreamNotes, onAddDreamNote, gradingSystem, t }) {
   const [expandedSubject, setExpandedSubject] = useState(null);
   
   const handleDelete = async (noteId) => {
@@ -56,7 +56,7 @@ export default function GradesList({ notes, isLoading, subjectAverages, calculat
     const dreamNote = dreamNotes[subject];
     if (!dreamNote) return null;
 
-    const validNotes = subjectNotes.filter(n => !n.exclue_bulletin);
+    const validNotes = subjectNotes.filter(n => Number.isFinite(Number(n.note)));
     const currentTotalCoef = validNotes.reduce((sum, n) => sum + (n.coefficient || 1), 0);
     const currentTotal = parseFloat(currentAvg) * currentTotalCoef;
     const newTotal = currentTotal + (dreamNote.note * dreamNote.coefficient);
@@ -74,7 +74,8 @@ export default function GradesList({ notes, isLoading, subjectAverages, calculat
     <div className="space-y-6">
       {groupedBySubject.map(([subject, subjectNotes]) => {
         const isExpanded = expandedSubject === subject;
-        const currentAverage = calculateAverage(subjectNotes);
+        const currentAverage = calculateAverage(subjectNotes, true);
+        const subjectExcluded = subjectNotes.some(note => note.matiere_hors_bulletin);
         const projectedAverage = projectionMode ? calculateProjectedAverage(subject, currentAverage, subjectNotes) : null;
 
         return (
@@ -98,6 +99,25 @@ export default function GradesList({ notes, isLoading, subjectAverages, calculat
                 {subject}
               </h3>
               <div className="flex items-center gap-2 flex-shrink-0">
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onToggleSubjectExclusion(subject, !subjectExcluded);
+                  }}
+                  className="p-2 rounded-lg"
+                  style={{
+                    backgroundColor: '#e0e5eb',
+                    color: subjectExcluded ? '#8a6a6a' : '#6a7a8a',
+                    boxShadow: subjectExcluded
+                      ? 'inset 3px 3px 6px #b8bdc4, inset -3px -3px 6px #ffffff'
+                      : '4px 4px 8px #b8bdc4, -4px -4px 8px #ffffff',
+                  }}
+                  title={subjectExcluded ? t.includeSubjectInReport : t.excludeSubjectFromReport}
+                  aria-label={subjectExcluded ? t.includeSubjectInReport : t.excludeSubjectFromReport}
+                >
+                  {subjectExcluded ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </motion.button>
                 {projectionMode && (
                   <motion.button
                     initial={{ opacity: 0, scale: 0.8 }}
@@ -191,6 +211,12 @@ export default function GradesList({ notes, isLoading, subjectAverages, calculat
                              }}>
                                <EyeOff className="w-3 h-3" />
                                {t.outOfReport}
+                             </span>
+                           )}
+                           {subjectExcluded && !note.exclue_bulletin && (
+                             <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg" style={{ backgroundColor: '#d0d5db', color: '#8a6a6a' }}>
+                               <EyeOff className="w-3 h-3" />
+                               {t.subjectOutOfReport}
                              </span>
                            )}
                            <span className="text-xs" style={{ color: '#9aabb8' }}>
