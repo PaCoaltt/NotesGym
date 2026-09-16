@@ -192,6 +192,7 @@ function validateNote(input) {
     date: input.date || "",
     commentaire: String(input.commentaire || "").trim(),
     exclue_bulletin: Boolean(input.exclue_bulletin),
+    matiere_hors_bulletin: Boolean(input.matiere_hors_bulletin),
     archived: Boolean(input.archived),
   };
 }
@@ -261,6 +262,28 @@ async function handleApi(req, res, url) {
       notes.push(note);
       await writeJson(NOTES_FILE, notes);
       return sendJson(res, 201, note);
+    }
+
+    if (url.pathname === "/api/notes/subject-report-status" && req.method === "PATCH") {
+      const user = await requireUser(req, res);
+      if (!user) return;
+
+      const body = await readBody(req);
+      const subject = String(body.subject || "").trim();
+      if (!subject) return sendError(res, 400, "Subject is required");
+
+      const notes = await readJson(NOTES_FILE, []);
+      const updatedAt = new Date().toISOString();
+      let updatedCount = 0;
+      for (const note of notes) {
+        if (note.created_by === user.email && note.matiere === subject) {
+          note.matiere_hors_bulletin = Boolean(body.excluded);
+          note.updated_date = updatedAt;
+          updatedCount += 1;
+        }
+      }
+      if (updatedCount > 0) await writeJson(NOTES_FILE, notes);
+      return sendJson(res, 200, { updatedCount, subject, excluded: Boolean(body.excluded) });
     }
 
     if (url.pathname === "/api/notes/archive" && req.method === "PATCH") {

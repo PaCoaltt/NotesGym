@@ -9,7 +9,7 @@ import StudiaPromoPopup from "./StudiaPromoPopup";
 
 const SYSTEM_MAX = { swiss: 6, french: 20, american: null };
 
-export default function AddGradeModal({ onClose, onSuccess, editingNote, gradingSystem, t, existingSubjects = [] }) {
+export default function AddGradeModal({ onClose, onSuccess, editingNote, gradingSystem, t, existingSubjects = [], excludedSubjects = [] }) {
   const [formData, setFormData] = useState(() => {
     if (editingNote) {
       return {
@@ -44,7 +44,9 @@ export default function AddGradeModal({ onClose, onSuccess, editingNote, grading
       const noteData = {
         ...formData,
         note: normalizeGradeToSwiss(formData.note, gradingSystem),
-        coefficient: parseFloat(formData.coefficient)
+        coefficient: parseFloat(formData.coefficient),
+        // A subject-level choice is inherited by every newly added grade.
+        matiere_hors_bulletin: excludedSubjects.includes(formData.matiere.trim())
       };
       
       if (editingNote) {

@@ -13,6 +13,15 @@ test("weighted average handles coefficients, exclusions, invalid and empty data"
   assert.equal(weightedAverage([]), null);
 });
 
+test("subject averages can include grades excluded from the report card", () => {
+  const grades = [
+    note("Latin", 5, 1, { exclue_bulletin: true }),
+    note("Latin", 4, 1, { matiere_hors_bulletin: true }),
+  ];
+  assert.equal(weightedAverage(grades), null);
+  assert.equal(weightedAverage(grades, { includeExcluded: true }), 4.5);
+});
+
 test("linear-regression trend requires enough data and classifies slopes", () => {
   assert.equal(classifyTrend([4, 5]).reliable, false);
   assert.equal(classifyTrend([3, 4, 5, 6]).key, "strong_up");
