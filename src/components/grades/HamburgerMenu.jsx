@@ -103,6 +103,28 @@ export default function HamburgerMenu({
                 <BarChart3 className="w-5 h-5" /> {replayT.title}
               </motion.button>
 
+              {/* Search */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium mb-3" style={{ color: '#8a9aa8' }}>
+                  {t.search}
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: '#8a9aa8' }} />
+                  <input
+                    type="text"
+                    placeholder={t.searchPlaceholder}
+                    value={searchTerm}
+                    onChange={(e) => onSearchChange(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 rounded-xl font-medium transition-all focus:outline-none"
+                    style={{
+                      backgroundColor: '#e0e5eb',
+                      color: '#5a6a7a',
+                      boxShadow: 'inset 3px 3px 6px #b8bdc4, inset -3px -3px 6px #ffffff',
+                    }}
+                  />
+                </div>
+              </div>
+
               {/* Language Selector */}
               <div className="mb-6">
                 <label className="block text-sm font-medium mb-3" style={{ color: '#8a9aa8' }}>
@@ -179,28 +201,6 @@ export default function HamburgerMenu({
                   >
                     {t.americanSystem}
                   </motion.button>
-                </div>
-              </div>
-
-              {/* Search */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium mb-3" style={{ color: '#8a9aa8' }}>
-                  {t.search}
-                </label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: '#8a9aa8' }} />
-                  <input
-                    type="text"
-                    placeholder={t.searchPlaceholder}
-                    value={searchTerm}
-                    onChange={(e) => onSearchChange(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 rounded-xl font-medium transition-all focus:outline-none"
-                    style={{
-                      backgroundColor: '#e0e5eb',
-                      color: '#5a6a7a',
-                      boxShadow: 'inset 3px 3px 6px #b8bdc4, inset -3px -3px 6px #ffffff',
-                    }}
-                  />
                 </div>
               </div>
 
