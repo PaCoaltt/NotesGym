@@ -1,0 +1,3 @@
+import { Search } from "lucide-react";
+import { ViewTitle } from "./MenuPrimitives";
+export default function MenuSearch({ t, searchTerm, onSearchChange }) { return <><ViewTitle>{t.search}</ViewTitle><div className="relative"><Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8a9aa8]" /><input autoFocus type="search" aria-label={t.search} placeholder={t.searchPlaceholder} value={searchTerm} onChange={(event) => onSearchChange(event.target.value)} className="w-full rounded-xl bg-[#e0e5eb] py-3 pl-10 pr-4 font-medium text-[#5a6a7a] shadow-[inset_3px_3px_6px_#b8bdc4,inset_-3px_-3px_6px_#ffffff] focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500" /></div></>; }

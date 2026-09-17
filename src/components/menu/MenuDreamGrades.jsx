@@ -1,0 +1,4 @@
+import { Sparkles } from "lucide-react";
+import { motion } from "framer-motion";
+import { insetShadow, raisedShadow, ViewTitle } from "./MenuPrimitives";
+export default function MenuDreamGrades({ subjects, dreamNotes, onAddDreamNote, t }) { return <><ViewTitle>{t.dreamNotes}</ViewTitle><div className="space-y-3">{subjects.map((subject) => <motion.button type="button" key={subject} whileTap={{ scale: 0.98 }} onClick={() => onAddDreamNote(subject)} className="flex min-h-12 w-full items-center justify-between rounded-xl p-4" style={{ boxShadow: dreamNotes[subject] ? insetShadow : raisedShadow }}><span className="font-medium text-[#5a6a7a]">{subject}</span><span className="flex items-center gap-2">{dreamNotes[subject] && <span className="rounded-lg bg-[#d0d5db] px-2 py-1 text-sm text-[#6a8a6a]">{dreamNotes[subject].note}/6</span>}<Sparkles className={`h-4 w-4 ${dreamNotes[subject] ? "text-[#6a8a6a]" : "text-[#8a9aa8]"}`} /></span></motion.button>)}</div></>; }
