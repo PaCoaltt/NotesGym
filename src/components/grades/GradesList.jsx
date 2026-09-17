@@ -7,13 +7,14 @@ import { fr } from "date-fns/locale";
 import GradeChart from "./GradeChart";
 import { formatGrade } from "./gradeUtils";
 
-export default function GradesList({ notes, isLoading, subjectAverages, calculateAverage, onRefetch, onEdit, onToggleSubjectExclusion, projectionMode, dreamNotes, onAddDreamNote, gradingSystem, t }) {
+export default function GradesList({ notes, isLoading, subjectAverages, calculateAverage, onRefetch, onEdit, onDelete, onToggleSubjectExclusion, projectionMode, dreamNotes, onAddDreamNote, gradingSystem, t }) {
   const [expandedSubject, setExpandedSubject] = useState(null);
   
-  const handleDelete = async (noteId) => {
+  const handleDelete = async (note) => {
     if (confirm(t.deleteConfirm)) {
-      await base44.entities.Note.delete(noteId);
-      onRefetch();
+      await base44.entities.Note.delete(note.id);
+      await onRefetch();
+      onDelete(note);
     }
   };
 
@@ -288,7 +289,7 @@ export default function GradesList({ notes, isLoading, subjectAverages, calculat
 
                           <motion.button
                             whileTap={{ scale: 0.9 }}
-                            onClick={() => handleDelete(note.id)}
+                            onClick={() => handleDelete(note)}
                             className="p-2 rounded-lg transition-all"
                             style={{
                               backgroundColor: '#e0e5eb',

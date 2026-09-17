@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Award, Archive, BookOpen } from "lucide-react";
+import { Plus, Award, Archive, BookOpen, RotateCcw, X } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import StatsCard from "../components/grades/StatsCard";
 import FilterPanel from "../components/grades/FilterPanel";
@@ -41,6 +41,8 @@ export default function Dashboard() {
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [archiveMode, setArchiveMode] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [deletedNote, setDeletedNote] = useState(null);
+  const undoTimerRef = useRef(null);
 
   const t = translations[language];
 
@@ -57,6 +59,29 @@ export default function Dashboard() {
   };
 
   const handleRedoTutorial = () => setShowTutorial(true);
+
+  useEffect(() => () => clearTimeout(undoTimerRef.current), []);
+
+  const handleNoteDeleted = (note) => {
+    clearTimeout(undoTimerRef.current);
+    setDeletedNote(note);
+    undoTimerRef.current = setTimeout(() => setDeletedNote(null), 10000);
+  };
+
+  const handleUndoDelete = async () => {
+    if (!deletedNote) return;
+
+    clearTimeout(undoTimerRef.current);
+    const noteToRestore = deletedNote;
+    setDeletedNote(null);
+
+    try {
+      await base44.entities.Note.create(noteToRestore);
+      await refetch();
+    } catch {
+      toast({ title: t.restoreError, variant: "destructive" });
+    }
+  };
 
   const { data: notes = [], isLoading, refetch } = useQuery({
     queryKey: ['notes'],
@@ -362,6 +387,7 @@ export default function Dashboard() {
           subjectAverages={subjectAverages}
           calculateAverage={calculateAverage}
           onRefetch={refetch}
+          onDelete={handleNoteDeleted}
           onEdit={(note) => {
             setEditingNote(note);
             setShowAddModal(true);
@@ -376,6 +402,10 @@ export default function Dashboard() {
           gradingSystem={gradingSystem}
           t={t}
         />
+
+        <footer className="pt-10 pb-2 text-center text-sm font-medium" style={{ color: '#8a9aa8' }}>
+          Made with 💚 by Pacoalt
+        </footer>
 
         {/* Add Grade Modal */}
         <AnimatePresence>
@@ -441,6 +471,39 @@ export default function Dashboard() {
               gradingSystem={gradingSystem}
               t={t}
             />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {deletedNote && (
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              role="status"
+              aria-live="polite"
+              className="fixed bottom-4 left-4 right-4 z-[60] mx-auto flex max-w-md items-center gap-3 rounded-2xl p-3 sm:bottom-6 sm:left-1/2 sm:right-auto sm:w-[calc(100%-3rem)] sm:-translate-x-1/2 sm:p-4"
+              style={{ backgroundColor: '#e0e5eb', color: '#5a6a7a', boxShadow: '8px 8px 20px rgba(90, 106, 122, 0.35), -6px -6px 16px #ffffff' }}
+            >
+              <p className="min-w-0 flex-1 text-sm font-medium">{t.noteDeleted}</p>
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={handleUndoDelete}
+                className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold"
+                style={{ boxShadow: '4px 4px 8px #b8bdc4, -4px -4px 8px #ffffff' }}
+              >
+                <RotateCcw className="h-4 w-4" />
+                {t.restore}
+              </motion.button>
+              <button
+                type="button"
+                onClick={() => { clearTimeout(undoTimerRef.current); setDeletedNote(null); }}
+                className="shrink-0 rounded-lg p-1"
+                aria-label={t.close}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
