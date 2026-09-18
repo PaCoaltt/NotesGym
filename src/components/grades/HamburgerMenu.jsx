@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, Menu, X } from "lucide-react";
 import { statisticsTranslations } from "@/components/statistics/statisticsTranslations";
+import { labTranslations } from "@/components/lab/labTranslations";
 import MenuHome from "@/components/menu/MenuHome";
 import MenuPreferences from "@/components/menu/MenuPreferences";
 import MenuData from "@/components/menu/MenuData";
@@ -36,7 +37,7 @@ export default function HamburgerMenu(props) {
   }, [isOpen]);
 
   const views = {
-    main: <MenuHome t={t} statisticsTitle={replayT.title} onNavigate={setMenuView} onInsights={() => { closeMenu(); props.onInsights(); }} onStatistics={() => { closeMenu(); props.onStatistics(); }} />,
+    main: <MenuHome t={t} statisticsTitle={replayT.title} labTitle={(labTranslations[language]||labTranslations.fr).title} onNavigate={setMenuView} onInsights={() => { closeMenu(); props.onInsights(); }} onStatistics={() => { closeMenu(); props.onStatistics(); }} onLab={() => { closeMenu(); props.onLab(); }} />,
     search: <MenuSearch t={t} searchTerm={props.searchTerm} onSearchChange={props.onSearchChange} />,
     preferences: <MenuPreferences {...props} />,
     data: <MenuData t={t} fileInputRef={fileInputRef} onExport={() => { props.onExport(); closeMenu(); }} onImport={(file) => { props.onImport(file); closeMenu(); }} onArchive={() => { props.onArchive(); closeMenu(); }} />,

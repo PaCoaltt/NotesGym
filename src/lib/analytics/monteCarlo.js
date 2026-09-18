@@ -13,6 +13,23 @@ function normal(random) {
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * random());
 }
 
+/** Shared next-grade model used by the semester simulation and the Lab. */
+export function buildPredictiveDistribution(history = [], options = {}) {
+  const config = options.config || ANALYTICS_CONFIG;
+  const subject = analyzeSubjects(history, config)[0];
+  if (!subject || subject.count < config.minTrendNotes) return null;
+  const parameters = { ...config.predictive, ...options.parameters };
+  const totalWeight = parameters.historicalWeight + parameters.recentWeight + parameters.trendWeight;
+  if (!(totalWeight > 0)) return null;
+  const location = Math.min(config.swiss.max, Math.max(config.swiss.min,
+    (subject.average * parameters.historicalWeight + subject.recentAverage * parameters.recentWeight + subject.trend.slope * parameters.trendWeight) / totalWeight));
+  const spread = Math.max(parameters.minimumSpread, subject.volatility.value || 0);
+  const iterations = Math.max(1, Math.floor(options.iterations || config.simulations));
+  const random = options.random || createSeededRandom(options.seed ?? 2025);
+  const samples = Array.from({ length: iterations }, () => generateProjectedGrade(location, spread, random, config.swiss)).sort((a, b) => a - b);
+  return { location, spread, iterations, samples, median: percentile(samples, .5), interval: [percentile(samples, .1), percentile(samples, .9)], parameters };
+}
+
 export function generateProjectedGrade(location, spread, random, limits = ANALYTICS_CONFIG.swiss) {
   return Math.min(limits.max, Math.max(limits.min, location + normal(random) * spread));
 }
@@ -34,9 +51,9 @@ export function simulateSemester(notes = [], settings = {}, options = {}) {
       const setting = settings[subject.subject] || {};
       const remaining = Math.max(0, Math.min(20, Math.floor(Number(setting.remaining) || 0)));
       const coefficient = Number(setting.coefficient) > 0 ? Number(setting.coefficient) : subject.averageCoefficient;
-      const spread = Math.max(0.25, subject.volatility.value || 0.5);
+      const spread = Math.max(config.predictive.minimumSpread, subject.volatility.value || 0.5);
       const location = Math.min(config.swiss.max, Math.max(config.swiss.min,
-        subject.average * 0.55 + subject.recentAverage * 0.35 + subject.trend.slope * 0.1));
+        subject.average * config.predictive.historicalWeight + subject.recentAverage * config.predictive.recentWeight + subject.trend.slope * config.predictive.trendWeight));
       const future = Array.from({ length: remaining }, () => ({
         matiere: subject.subject, coefficient,
         note: generateProjectedGrade(location, spread, random, config.swiss),
