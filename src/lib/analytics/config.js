@@ -8,4 +8,5 @@ export const ANALYTICS_CONFIG = Object.freeze({
   anomalyZScore: 2,
   swiss: { min: 1, max: 6, sufficient: 4, target: 5, improvement: 0.5 },
   simulations: 10000,
+  predictive: { historicalWeight: 0.55, recentWeight: 0.35, trendWeight: 0.1, minimumSpread: 0.25 },
 });

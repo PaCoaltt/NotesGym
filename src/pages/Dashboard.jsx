@@ -311,6 +311,7 @@ export default function Dashboard() {
                 onRedoTutorial={handleRedoTutorial}
                 onInsights={() => navigate('/Insights', { state: { language, filter: { year: selectedYear, semester: selectedSemester } } })}
                 onStatistics={() => navigate('/Statistics', { state: { language, gradingSystem, archived: archiveMode, filter: { year: selectedYear, semester: selectedSemester } } })}
+                onLab={() => navigate('/Lab', { state: { language, gradingSystem, archived: archiveMode, filter: { year: selectedYear, semester: selectedSemester } } })}
                 replayFilters={{ year: selectedYear, semester: selectedSemester, archived: archiveMode }}
                 t={t}
                 />

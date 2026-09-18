@@ -2,6 +2,7 @@ import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
 import Insights from './pages/Insights';
 import Statistics from './pages/Statistics';
+import Lab from './pages/Lab';
 
 
 export const PAGES = {
@@ -9,6 +10,7 @@ export const PAGES = {
     "Home": Home,
     "Insights": Insights,
     "Statistics": Statistics,
+    "Lab": Lab,
 }
 
 export const pagesConfig = {
