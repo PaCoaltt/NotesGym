@@ -8,6 +8,8 @@ export default [
     files: [
       "src/components/**/*.{js,mjs,cjs,jsx}",
       "src/pages/**/*.{js,mjs,cjs,jsx}",
+      "src/redesign/**/*.{js,mjs,cjs,jsx}",
+      "src/App.jsx",
       "src/Layout.jsx",
     ],
     languageOptions: { globals: globals.browser },
@@ -17,6 +19,8 @@ export default [
     files: [
       "src/components/**/*.{js,mjs,cjs,jsx}",
       "src/pages/**/*.{js,mjs,cjs,jsx}",
+      "src/redesign/**/*.{js,mjs,cjs,jsx}",
+      "src/App.jsx",
       "src/Layout.jsx",
     ],
     ...pluginReact.configs.flat.recommended,

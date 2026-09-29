@@ -1,0 +1,26 @@
+.v2-theme {
+  --v2-bg: #f7f7f3;
+  --v2-surface: #ffffff;
+  --v2-text: #171815;
+  --v2-muted: #696c65;
+  --v2-border: #e4e5de;
+  --v2-lime: #b7ee63;
+  --v2-rust: #c85a35;
+  --v2-positive: #217a55;
+  --v2-warning: #a66a12;
+  --v2-negative: #b33b42;
+  --v2-radius-sm: 8px;
+  --v2-radius-control: 12px;
+  --v2-radius-card: 16px;
+  --v2-radius-editorial: 24px;
+  --v2-radius-pill: 999px;
+  --v2-space-1: 4px;
+  --v2-space-2: 8px;
+  --v2-space-3: 12px;
+  --v2-space-4: 16px;
+  --v2-space-5: 20px;
+  --v2-space-6: 24px;
+  --v2-space-8: 32px;
+  --v2-space-10: 40px;
+  --v2-ease: 200ms ease;
+}
