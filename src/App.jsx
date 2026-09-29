@@ -11,6 +11,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import LoginScreen from '@/components/LoginScreen';
 import PatchNotesPopup from '@/components/PatchNotesPopup';
+import DashboardV2 from '@/redesign/pages/DashboardV2';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -51,6 +52,7 @@ const AuthenticatedApp = () => {
       <LayoutWrapper currentPageName={mainPageKey}>
         <Routes>
           <Route path="/" element={<MainPage />} />
+          <Route path="/v2" element={<DashboardV2 />} />
           {Object.entries(Pages).map(([path, Page]) => (
             <Route key={path} path={`/${path}`} element={<Page />} />
           ))}
