@@ -3,7 +3,9 @@ import React, { useId } from "react";
 export default function Sparkline({ values = [], color = "currentColor", className = "", label = "Évolution" }) {
   const titleId = useId();
   const valid = values.map(Number).filter(Number.isFinite);
-  const points = valid.length > 1 ? valid : [3.8, 4.1, 4, 4.5, 4.7, 5];
+  if (valid.length < 2) return null;
+
+  const points = valid;
   const min = Math.min(...points);
   const range = Math.max(Math.max(...points) - min, 0.5);
   const path = points.map((value, index) => {
