@@ -291,7 +291,7 @@ export default function Dashboard() {
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => setMenuEnabled(!menuEnabled)}
-              className="flex items-center gap-2 px-3 md:px-4 py-3 rounded-xl font-medium transition-all"
+              className="hidden md:flex items-center gap-2 px-3 md:px-4 py-3 rounded-xl font-medium transition-all"
               style={{
                 backgroundColor: menuEnabled ? '#6a7a8a' : '#e0e5eb',
                 color: menuEnabled ? '#ffffff' : '#8a9aa8',
@@ -360,7 +360,7 @@ export default function Dashboard() {
             <motion.button
               whileTap={{ scale: 0.97 }}
               onClick={() => setShowAddModal(true)}
-              className="flex items-center justify-center gap-3 p-6 md:p-8 rounded-2xl font-bold text-lg md:text-xl transition-all"
+              className="hidden md:flex items-center justify-center gap-3 p-6 md:p-8 rounded-2xl font-bold text-lg md:text-xl transition-all"
               style={{
                 backgroundColor: '#e0e5eb',
                 color: '#5a6a7a',
