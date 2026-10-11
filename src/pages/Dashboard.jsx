@@ -263,6 +263,7 @@ export default function Dashboard() {
           <div>
             <h1 className="text-3xl md:text-4xl font-bold mb-1" style={{ color: '#5a6a7a' }}>
               {t.appTitle}
+              <img src="/icon-192.png" alt="" width="24" height="24" className="ml-2 inline-block h-6 w-6 align-middle md:hidden" />
             </h1>
             <p className="text-sm" style={{ color: '#8a9aa8' }}>{t.appSubtitle}</p>
           </div>
