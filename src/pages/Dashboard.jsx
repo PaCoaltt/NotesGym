@@ -11,12 +11,14 @@ import AddGradeModal from "../components/grades/AddGradeModal";
 import CompensationCard from "../components/grades/CompensationCard";
 import DreamNoteModal from "../components/grades/DreamNoteModal";
 import HamburgerMenu from "../components/grades/HamburgerMenu";
+import MobileBottomNav from "../components/grades/MobileBottomNav";
+import { useIsMobile } from "@/hooks/use-mobile";
 import ArchiveModal from "../components/grades/ArchiveModal";
 import Tutorial from "../components/grades/Tutorial";
 import { translations } from "../components/translations";
 import { parseNotesFromCsv } from "../utils/csvNotes";
 import { toast } from "@/components/ui/use-toast";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { weightedAverage } from "@/lib/analytics/statistics";
 import { calculateCompensation } from "@/lib/analytics/compensation";
 import { generateInsights } from "@/lib/analytics/insights";
@@ -25,6 +27,9 @@ import { insightsTranslations } from "@/components/insights/insightsTranslations
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isMobile = useIsMobile();
+  const [mobileMenuView, setMobileMenuView] = useState(null);
   const { user } = useAuth();
   const [selectedYear, setSelectedYear] = useState("all");
   const [selectedSemester, setSelectedSemester] = useState("all");
@@ -45,6 +50,23 @@ export default function Dashboard() {
   const undoTimerRef = useRef(null);
 
   const t = translations[language];
+
+  useEffect(() => {
+    if (!isMobile || !location.state?.mobileAction) return;
+    const { mobileAction, ...state } = location.state;
+    if (state.language) setLanguage(state.language);
+    if (state.gradingSystem) setGradingSystem(state.gradingSystem);
+    if (state.archived !== undefined) setArchiveMode(state.archived);
+    if (state.filter?.year) setSelectedYear(state.filter.year);
+    if (state.filter?.semester) setSelectedSemester(state.filter.semester);
+    if (mobileAction === "add") setShowAddModal(true);
+    else setMobileMenuView(mobileAction === "search" ? "search" : "main");
+    navigate(location.pathname, { replace: true, state });
+  }, [isMobile, location.state, location.pathname, navigate]);
+
+  useEffect(() => {
+    if (!isMobile) setMobileMenuView(null);
+  }, [isMobile]);
 
   // Show tutorial automatically for new users (first connection on this browser)
   useEffect(() => {
@@ -230,7 +252,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-8" style={{ backgroundColor: '#e0e5eb' }}>
+    <div className="mobile-navigation-page min-h-screen p-4 md:p-8" style={{ backgroundColor: '#e0e5eb' }}>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <motion.div 
@@ -290,8 +312,10 @@ export default function Dashboard() {
               <span className="hidden md:inline text-sm">{t.options}</span>
             </motion.button>
 
-            {menuEnabled && (
+            {(menuEnabled || isMobile) && (
               <HamburgerMenu
+                openView={isMobile ? mobileMenuView : undefined}
+                onOpenViewChange={isMobile ? setMobileMenuView : undefined}
                 onExport={handleExport}
                 onImport={handleImport}
                 onSearchChange={setSearchTerm}
@@ -483,7 +507,7 @@ export default function Dashboard() {
               exit={{ opacity: 0, y: 24 }}
               role="status"
               aria-live="polite"
-              className="fixed bottom-4 left-4 right-4 z-[60] mx-auto flex max-w-md items-center gap-3 rounded-2xl p-3 sm:bottom-6 sm:left-1/2 sm:right-auto sm:w-[calc(100%-3rem)] sm:-translate-x-1/2 sm:p-4"
+              className="mobile-navigation-undo fixed bottom-4 left-4 right-4 z-[60] mx-auto flex max-w-md items-center gap-3 rounded-2xl p-3 sm:bottom-6 sm:left-1/2 sm:right-auto sm:w-[calc(100%-3rem)] sm:-translate-x-1/2 sm:p-4"
               style={{ backgroundColor: '#e0e5eb', color: '#5a6a7a', boxShadow: '8px 8px 20px rgba(90, 106, 122, 0.35), -6px -6px 16px #ffffff' }}
             >
               <p className="min-w-0 flex-1 text-sm font-medium">{t.noteDeleted}</p>
@@ -508,6 +532,13 @@ export default function Dashboard() {
           )}
         </AnimatePresence>
       </div>
+      <MobileBottomNav
+        language={language}
+        navigationState={{ language, gradingSystem, archived: archiveMode, filter: { year: selectedYear, semester: selectedSemester } }}
+        onAdd={() => { setEditingNote(null); setShowAddModal(true); }}
+        onSearch={() => setMobileMenuView("search")}
+        onMore={() => setMobileMenuView("main")}
+      />
     </div>
   );
 }

@@ -12,7 +12,8 @@ import MenuDreamGrades from "@/components/menu/MenuDreamGrades";
 import MenuSearch from "@/components/menu/MenuSearch";
 
 export default function HamburgerMenu(props) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isOpen = props.openView !== undefined ? props.openView !== null : internalOpen;
   const [menuView, setMenuView] = useState("main");
   const [historyDate, setHistoryDate] = useState("");
   const fileInputRef = useRef(null);
@@ -22,9 +23,14 @@ export default function HamburgerMenu(props) {
   const replayT = { ...t, ...statisticsTranslations[language] };
 
   const closeMenu = () => {
-    setIsOpen(false);
+    setInternalOpen(false);
+    props.onOpenViewChange?.(null);
     setMenuView("main");
   };
+
+  useEffect(() => {
+    if (props.openView) setMenuView(props.openView);
+  }, [props.openView]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -47,7 +53,7 @@ export default function HamburgerMenu(props) {
   };
 
   return <>
-    <motion.button type="button" whileTap={{ scale: 0.95 }} onClick={() => isOpen ? closeMenu() : setIsOpen(true)} aria-label={isOpen ? t.close : t.openOptions} aria-expanded={isOpen} className="p-3 rounded-xl transition-all" style={{ backgroundColor: "#e0e5eb", color: "#5a6a7a", boxShadow: isOpen ? "inset 4px 4px 8px #b8bdc4, inset -4px -4px 8px #ffffff" : "8px 8px 16px #b8bdc4, -8px -8px 16px #ffffff" }}>
+    <motion.button type="button" whileTap={{ scale: 0.95 }} onClick={() => { if (isOpen) closeMenu(); else { setInternalOpen(true); props.onOpenViewChange?.("main"); } }} aria-label={isOpen ? t.close : t.openOptions} aria-expanded={isOpen} className="hidden md:block p-3 rounded-xl transition-all" style={{ backgroundColor: "#e0e5eb", color: "#5a6a7a", boxShadow: isOpen ? "inset 4px 4px 8px #b8bdc4, inset -4px -4px 8px #ffffff" : "8px 8px 16px #b8bdc4, -8px -8px 16px #ffffff" }}>
       {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
     </motion.button>
     <AnimatePresence>

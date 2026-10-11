@@ -4,7 +4,8 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import NavigationTracker from '@/lib/NavigationTracker'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
+import MobileBottomNav from '@/components/grades/MobileBottomNav';
 import { setupIframeMessaging } from './lib/iframe-messaging';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
@@ -23,6 +24,8 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   : <>{children}</>;
 
 const AuthenticatedApp = () => {
+  const location = useLocation();
+  const hasMobileNav = ['/Insights', '/Statistics', '/Lab'].includes(location.pathname);
   const { user, isLoadingAuth, isLoadingPublicSettings, authError, isAuthenticated } = useAuth();
 
   // Show loading spinner while checking app public settings or auth
@@ -49,6 +52,7 @@ const AuthenticatedApp = () => {
   return (
     <>
       <LayoutWrapper currentPageName={mainPageKey}>
+        <div className={hasMobileNav ? 'mobile-navigation-page mobile-navigation-secondary' : undefined}>
         <Routes>
           <Route path="/" element={<MainPage />} />
           {Object.entries(Pages).map(([path, Page]) => (
@@ -56,6 +60,8 @@ const AuthenticatedApp = () => {
           ))}
           <Route path="*" element={<PageNotFound />} />
         </Routes>
+        {hasMobileNav && <MobileBottomNav />}
+        </div>
       </LayoutWrapper>
       <PatchNotesPopup user={user} />
     </>
