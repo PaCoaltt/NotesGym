@@ -1,4 +1,4 @@
-import { BarChart3, Lightbulb, MoreHorizontal, Plus, Search } from "lucide-react";
+import { BarChart3, Home, Lightbulb, MoreHorizontal, Plus, Search } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { translations } from "@/components/translations";
 import { statisticsTranslations } from "@/components/statistics/statisticsTranslations";
@@ -9,12 +9,14 @@ export default function MobileBottomNav({ language, navigationState, onAdd, onSe
   const state = navigationState || location.state || {};
   const lang = language || state.language || localStorage.getItem("notesgym_language") || "fr";
   const t = translations[lang] || translations.fr;
+  const showHome = ["/Insights", "/Statistics"].includes(location.pathname);
+  const homeLabel = { fr: "Retour au dashboard", en: "Back to dashboard", de: "Zurück zum Dashboard" }[lang] || "Retour au dashboard";
   const moreLabel = { fr: "Plus…", en: "More…", de: "Mehr…" }[lang] || "Plus…";
   const dashboardAction = (mobileAction) => navigate("/Dashboard", { state: { ...state, mobileAction } });
   const items = [
     { icon: Lightbulb, label: t.insights, active: location.pathname === "/Insights", onClick: () => navigate("/Insights", { state }) },
     { icon: BarChart3, label: (statisticsTranslations[lang] || statisticsTranslations.fr).title, active: location.pathname === "/Statistics", onClick: () => navigate("/Statistics", { state }) },
-    { icon: Plus, label: t.addNote, add: true, onClick: onAdd || (() => dashboardAction("add")) },
+    { icon: showHome ? Home : Plus, label: showHome ? homeLabel : t.addNote, add: true, onClick: showHome ? (() => navigate("/Dashboard", { state })) : (onAdd || (() => dashboardAction("add"))) },
     { icon: Search, label: t.search, onClick: onSearch || (() => dashboardAction("search")) },
     { icon: MoreHorizontal, label: moreLabel, onClick: onMore || (() => dashboardAction("main")) },
   ];
