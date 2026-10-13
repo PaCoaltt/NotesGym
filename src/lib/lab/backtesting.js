@@ -22,3 +22,27 @@ export function walkForwardBacktest(notes=[], options={}) {
   }
   return Object.fromEntries(Object.entries(models).map(([key,rows])=>[key,{rows,metrics:backtestMetrics(rows)}]));
 }
+
+/**
+ * Compare predictions for grades in one school year using only earlier grades
+ * from that year versus every earlier grade available for the same subject.
+ * Both models predict exactly the same targets and never see future grades.
+ */
+export function compareAnnualHistoryBacktest(notes=[], targetYear, options={}) {
+  if (!targetYear || targetYear === "all") return { annual:{rows:[],metrics:null}, history:{rows:[],metrics:null} };
+  const ordered=sortForBacktest(notes); const iterations=options.iterations||2000; const seed=options.seed??719431;
+  const paired={annual:[],history:[]};
+  ordered.forEach((target,index)=>{
+    if(target.annee!==targetYear) return;
+    const prior=ordered.slice(0,index);
+    const annualHistory=prior.filter(note=>note.annee===targetYear);
+    if(annualHistory.length<MIN_BACKTEST_HISTORY || prior.length<MIN_BACKTEST_HISTORY) return;
+    const annualResult=buildPredictiveDistribution(annualHistory,{iterations,seed:seed+index,parameters:options.parameters});
+    const historyResult=buildPredictiveDistribution(prior,{iterations,seed:seed+index,parameters:options.parameters});
+    if(!annualResult || !historyResult) return;
+    const actual=Number(target.note); const base={index,date:target.date||target.created_date||"—",actual};
+    paired.annual.push({...base,predicted:annualResult.median,p10:annualResult.interval[0],p90:annualResult.interval[1],error:actual-annualResult.median,historyCount:annualHistory.length});
+    paired.history.push({...base,predicted:historyResult.median,p10:historyResult.interval[0],p90:historyResult.interval[1],error:actual-historyResult.median,historyCount:prior.length});
+  });
+  return Object.fromEntries(Object.entries(paired).map(([key,rows])=>[key,{rows,metrics:backtestMetrics(rows)}]));
+}
