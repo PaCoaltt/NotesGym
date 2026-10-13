@@ -2,7 +2,7 @@ import { ANALYTICS_CONFIG } from "./config.js";
 import { calculateCompensation } from "./compensation.js";
 import { analyzeSubjects } from "./subjects.js";
 import { linearRegressionSlope, percentile, validCoefficient, weightedAverage } from "./statistics.js";
-import { evaluationTime, predictiveEligible, samePredictiveSubject, schoolYearStart, temporalWeight } from "./predictiveData.js";
+import { evaluationTime, predictiveEligible, samePredictiveSubject, isEarlierSchoolYear, temporalWeight } from "./predictiveData.js";
 
 export function createSeededRandom(seed = 2025) {
   let state = seed >>> 0;
@@ -40,7 +40,7 @@ export function buildPredictiveDistribution(history = [], options = {}) {
   if (reference == null) return null;
   const ordered = eligible.filter(n => samePredictiveSubject(n, anchor) && evaluationTime(n) <= reference);
   const current = ordered.filter(n => n.annee === year);
-  const prior = options.useHistory === false ? [] : ordered.filter(n => schoolYearStart(n.annee) != null && schoolYearStart(year) != null && schoolYearStart(n.annee) < schoolYearStart(year));
+  const prior = options.useHistory === false ? [] : ordered.filter(n => isEarlierSchoolYear(n.annee, year));
   if (current.length < config.minTrendNotes) return null;
   const weights = [parameters.historicalWeight, parameters.recentWeight, parameters.trendWeight];
   if (weights.some(w => !Number.isFinite(w) || w < 0) || weights.reduce((a,b)=>a+b,0) <= 0) return null;

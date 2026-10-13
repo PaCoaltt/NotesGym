@@ -50,3 +50,13 @@ Tests Node : suite historique conservée et tests spécifiques de scope annuel, 
 Validation exécutée : 36 tests Node après les dernières finitions, ESLint ciblé sans erreur et build Vite réussi. Contrôle navigateur avec Edge headless et données synthétiques à 390 px et 1440 px : association historique, switch mémorisé, effectifs comparables malgré filtre semestriel et quatre onglets du Lab. Captures inspectées visuellement. Le script scripts/check-predictive-browser.mjs accepte en arguments le chemin du module Playwright, l’URL locale et le canal navigateur optionnel. Les captures générées restent hors commit.
 
 Formats annuels reconnus : 2026-2027 (formulaire existant), 2026/2027 et 2026/27. Les étiquettes d’année non interprétables peuvent servir au périmètre officiel exact mais ne sont pas devinées pour sélectionner des années antérieures. Les poids sont normalisés en espace logarithmique pour éviter les débordements et sous-flux numériques.
+
+## Correctif Gym et paramètres persistants
+
+Les niveaux Gym1, Gym2, Gym3, Gym 4 (et Gymnase suivi d’un numéro) sont reconnus comme une séquence distincte des années calendaires. Ils étaient auparavant ignorés, y compris dans le panneau d’association. Les associations interannuelles restent explicites ; les évaluations futures restent exclues du backtesting.
+
+Les paramètres de simulation sont enregistrés automatiquement en localStorage par compte, année et matière. Chaque plan garde les identifiants des évaluations déjà observées. À l’ajout de nouveaux identifiants dans l’année et la matière, le restant diminue une seule fois, jusqu’à zéro. Les coefficients saisis sont conservés. Une modification de note, un rechargement ou la restauration d’un identifiant connu ne consomment pas une autre évaluation. Les notes archivées d’autres années et exclues du bulletin ne consomment pas le plan annuel. Les paramètres sont immédiatement utilisés par la simulation ; le bouton de recalcul reste disponible.
+
+La sauvegarde reste propre au navigateur et à l’appareil. L’API fournit des IDs stables ; pour les imports sans ID, created_date puis une empreinte date/note/coefficient servent de secours, moins robuste aux modifications. Les plans ne peuvent suivre les ajouts que depuis leur première création sur cet appareil.
+
+Validation de ce correctif : 42 tests Node réussis, ESLint ciblé réussi, build réussi (avertissement habituel de taille du bundle). Edge headless à 390 et 1440 px : historique Gym2 vers Gym3 après association explicite, sauvegarde restant et coefficient au rechargement, passage de 4 à 3 après ajout, maintien à 3 après rechargement/modification/suppression de la note, isolation entre années et comptes, comparaison annuelle et onglets Lab.
