@@ -1,7 +1,8 @@
 import { ANALYTICS_CONFIG } from "./config.js";
 import { calculateCompensation } from "./compensation.js";
-import { analyzeSubjects, chronologicalNotes } from "./subjects.js";
-import { percentile, validCoefficient, weightedAverage } from "./statistics.js";
+import { analyzeSubjects } from "./subjects.js";
+import { linearRegressionSlope, percentile, validCoefficient, weightedAverage } from "./statistics.js";
+import { evaluationTime, predictiveEligible, samePredictiveSubject, schoolYearStart, temporalWeight } from "./predictiveData.js";
 
 export function createSeededRandom(seed = 2025) {
   let state = seed >>> 0;
@@ -13,83 +14,89 @@ function normal(random) {
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * random());
 }
 
-function timestamp(note) {
-  const value = note?.date || note?.created_date;
-  const parsed = value ? Date.parse(value) : NaN;
-  return Number.isFinite(parsed) ? parsed : null;
+/** Recency and coefficients are normalized; coefficients are not replicate observations. */
+function moments(notes, reference, halfLife) {
+  const logs = notes.map(note => Math.log(validCoefficient(note.coefficient)) -
+    (halfLife > 0 ? Math.LN2 * Math.max(0, reference - evaluationTime(note)) / (86400000 * halfLife) : 0));
+  const maximum = Math.max(...logs);
+  const weights = logs.map(value => Math.exp(value - maximum));
+  const total = weights.reduce((a,b) => a+b, 0);
+  const average = notes.reduce((sum,n,i) => sum + Number(n.note) * weights[i], 0) / total;
+  const effectiveCount = total ** 2 / weights.reduce((sum,w) => sum + w*w, 0);
+  const variance = notes.reduce((sum,n,i) => sum + weights[i] * (Number(n.note)-average)**2, 0) / total;
+  return { average, variance: effectiveCount > 1 ? variance * effectiveCount / (effectiveCount-1) : 0, effectiveCount };
 }
 
-function recencyWeightedAverage(notes = [], halfLifeDays = 365) {
-  const ordered = chronologicalNotes(notes);
-  if (!ordered.length) return null;
-  const dated = ordered.map((note) => ({ note, time: timestamp(note) })).filter((item) => item.time != null);
-  if (!dated.length || !(halfLifeDays > 0)) return weightedAverage(ordered);
-  const reference = Math.max(...dated.map((item) => item.time));
-  const halfLifeMs = halfLifeDays * 86400000;
-  let numerator = 0;
-  let denominator = 0;
-  ordered.forEach((note) => {
-    const time = timestamp(note);
-    const age = time == null ? 0 : Math.max(0, reference - time);
-    const recency = 2 ** (-age / halfLifeMs);
-    const weight = validCoefficient(note.coefficient) * recency;
-    numerator += Number(note.note) * weight;
-    denominator += weight;
-  });
-  return denominator ? numerator / denominator : weightedAverage(ordered);
-}
-
-/** Shared next-grade model used by the annual simulation and the Lab. */
+/** One subject, explicit current-year anchor; dates without proven chronology are omitted. */
 export function buildPredictiveDistribution(history = [], options = {}) {
   const config = options.config || ANALYTICS_CONFIG;
-  const ordered = chronologicalNotes(history);
-  const subject = analyzeSubjects(ordered, config)[0];
-  if (!subject || subject.count < config.minTrendNotes) return null;
   const parameters = { ...config.predictive, ...options.parameters };
-  const totalWeight = parameters.historicalWeight + parameters.recentWeight + parameters.trendWeight;
-  if (!(totalWeight > 0)) return null;
-
-  const trendHistory = ordered.slice(-Math.max(config.minTrendNotes, parameters.trendWindow || ordered.length));
-  const volatilityHistory = ordered.slice(-Math.max(config.minVolatilityNotes, parameters.volatilityWindow || ordered.length));
-  const trendSubject = analyzeSubjects(trendHistory, config)[0] || subject;
-  const volatilitySubject = analyzeSubjects(volatilityHistory, config)[0] || subject;
-  const historicalAverage = recencyWeightedAverage(ordered, parameters.historyHalfLifeDays);
-  const recentAverage = subject.recentAverage ?? historicalAverage;
-  const trend = trendSubject.trend.reliable ? trendSubject.trend.slope : 0;
-  const location = Math.min(config.swiss.max, Math.max(config.swiss.min,
-    (historicalAverage * parameters.historicalWeight + recentAverage * parameters.recentWeight + trend * parameters.trendWeight) / totalWeight));
-  const spread = Math.max(parameters.minimumSpread, volatilitySubject.volatility.value || 0);
-  const iterations = Math.max(1, Math.floor(options.iterations || config.simulations));
+  const eligible = predictiveEligible(history).filter(n => evaluationTime(n) != null)
+    .sort((a,b) => evaluationTime(a)-evaluationTime(b) || String(a.id || '').localeCompare(String(b.id || '')));
+  const anchor = options.subjectNote || eligible.at(-1);
+  if (!anchor) return null;
+  const year = options.currentYear ?? anchor.annee;
+  const reference = options.asOf == null ? evaluationTime(eligible.at(-1)) : evaluationTime({date:options.asOf});
+  if (reference == null) return null;
+  const ordered = eligible.filter(n => samePredictiveSubject(n, anchor) && evaluationTime(n) <= reference);
+  const current = ordered.filter(n => n.annee === year);
+  const prior = options.useHistory === false ? [] : ordered.filter(n => schoolYearStart(n.annee) != null && schoolYearStart(year) != null && schoolYearStart(n.annee) < schoolYearStart(year));
+  if (current.length < config.minTrendNotes) return null;
+  const weights = [parameters.historicalWeight, parameters.recentWeight, parameters.trendWeight];
+  if (weights.some(w => !Number.isFinite(w) || w < 0) || weights.reduce((a,b)=>a+b,0) <= 0) return null;
+  const full = moments(current, reference, parameters.historyHalfLifeDays);
+  const recent = moments(current.slice(-config.recentWindow), reference, parameters.historyHalfLifeDays);
+  const trendNotes = current.slice(-Math.max(config.minTrendNotes, parameters.trendWindow));
+  const trend = linearRegressionSlope(trendNotes.map(n => Number(n.note)));
+  // A trend is an adjustment to a level, never a grade with a weight of its own.
+  const sum = weights.reduce((a,b)=>a+b,0);
+  let location = (full.average*weights[0] + recent.average*weights[1] +
+    (recent.average + Math.max(-parameters.maximumTrendAdjustment, Math.min(parameters.maximumTrendAdjustment, trend)))*weights[2]) / sum;
+  let influence = 0; let historicalAverage = null;
+  if (prior.length) {
+    const old = moments(prior, reference, parameters.historyHalfLifeDays);
+    historicalAverage = old.average;
+    const recencyMass = prior.reduce((s,n)=>s+temporalWeight((reference-evaluationTime(n))/86400000, parameters.historyHalfLifeDays),0);
+    influence = Math.min(parameters.maximumHistoryInfluence, Math.min(parameters.priorStrength,recencyMass)/(full.effectiveCount+parameters.priorStrength));
+    location = (1-influence)*location + influence*old.average;
+  }
+  location = Math.min(config.swiss.max, Math.max(config.swiss.min, location));
+  const volatility = moments(current.slice(-Math.max(config.minVolatilityNotes, parameters.volatilityWindow)), reference, parameters.historyHalfLifeDays);
+  // Shrink unstable variance toward a conservative prior, and include uncertainty in the level.
+  const variance = (volatility.variance*Math.max(0,volatility.effectiveCount-1) + parameters.minimumSpread**2*parameters.priorStrength) /
+    (Math.max(0,volatility.effectiveCount-1)+parameters.priorStrength);
+  const spread = Math.max(config.predictive.minimumSpread, parameters.minimumSpread, Math.sqrt(variance*(1+1/full.effectiveCount)));
+  const iterations = Math.max(1, Math.min(20000, Math.floor(options.iterations || config.simulations)));
   const random = options.random || createSeededRandom(options.seed ?? 2025);
-  const samples = Array.from({ length: iterations }, () => generateProjectedGrade(location, spread, random, config.swiss)).sort((a, b) => a - b);
-  return {
-    location,
-    spread,
-    iterations,
-    samples,
-    median: percentile(samples, .5),
-    interval: [percentile(samples, .1), percentile(samples, .9)],
-    parameters,
-    historyCount: ordered.length,
-    historicalAverage,
-  };
+  const samples = Array.from({length:iterations}, () => generateProjectedGrade(location,spread,random,config.swiss)).sort((a,b)=>a-b);
+  return { location, spread, iterations, samples, median:percentile(samples,.5), interval:[percentile(samples,.1),percentile(samples,.9)], parameters,
+    historyCount:current.length+prior.length, historicalCount:prior.length, effectiveCount:full.effectiveCount, historicalAverage, historyInfluence:influence };
 }
 
 export function generateProjectedGrade(location, spread, random, limits = ANALYTICS_CONFIG.swiss) {
-  return Math.min(limits.max, Math.max(limits.min, location + normal(random) * spread));
+  // Rejection sampling: truncation avoids the artificial endpoint masses caused by clipping.
+  const center = Math.min(limits.max, Math.max(limits.min, location));
+  if (!(spread > 0) || !Number.isFinite(spread)) return center;
+  for (let attempt=0; attempt<10000; attempt++) {
+    const value = center + normal(random)*spread;
+    if (value >= limits.min && value <= limits.max) return value;
+  }
+  return limits.min + random()*(limits.max-limits.min);
 }
 
-export function simulateSemester(notes = [], settings = {}, options = {}) {
+export function simulateAnnual(notes = [], settings = {}, options = {}) {
   const config = options.config || ANALYTICS_CONFIG;
   const iterations = Math.max(1, Math.floor(options.iterations || config.simulations));
   const random = options.random || createSeededRandom(options.seed ?? 2025);
-  const subjects = analyzeSubjects(notes, config);
+  const officialNotes = notes.filter(note => !note.archived && (!options.currentYear || note.annee === options.currentYear));
+  const subjects = analyzeSubjects(officialNotes, config);
   if (!subjects.length) return null;
   const predictiveNotes = options.predictiveNotes?.length ? options.predictiveNotes : notes;
   const predictiveBySubject = new Map(
     subjects.map((subject, index) => {
-      const history = predictiveNotes.filter((note) => String(note.matiere || "").trim() === subject.subject);
-      return [subject.subject, buildPredictiveDistribution(history, { config, iterations: 1, seed: (options.seed ?? 2025) + index })];
+      const anchor = subject.notes.at(-1);
+      const history = predictiveNotes.filter((note) => samePredictiveSubject(note, anchor));
+      return [subject.subject, buildPredictiveDistribution(history, { config, iterations: 1, seed: (options.seed ?? 2025) + index, subjectNote: anchor, currentYear: options.currentYear ?? anchor.annee, asOf: options.asOf, useHistory: options.useHistory })];
     })
   );
   const finals = [];
@@ -123,6 +130,7 @@ export function simulateSemester(notes = [], settings = {}, options = {}) {
   }
   finals.sort((a, b) => a - b);
   return {
+    historicalCount: [...predictiveBySubject.values()].reduce((sum, model) => sum + (model?.historicalCount || 0), 0),
     iterations, median: percentile(finals, 0.5),
     // P10–P90 is an intentionally broad central 80% scenario interval.
     interval: [percentile(finals, 0.1), percentile(finals, 0.9)],
@@ -132,3 +140,6 @@ export function simulateSemester(notes = [], settings = {}, options = {}) {
     subjectRisks: Object.entries(riskCounts).map(([subject, count]) => ({ subject, probability: count / iterations })).sort((a, b) => b.probability - a.probability),
   };
 }
+
+// Compatibility for existing consumers; the caller provides the annual official scope.
+export const simulateSemester = simulateAnnual;

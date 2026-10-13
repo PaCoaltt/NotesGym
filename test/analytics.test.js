@@ -132,7 +132,7 @@ test("annual versus full-history backtest uses paired targets and only earlier g
     note("Math",5.2,1,{date:"2026-12-01",annee:"2026/27"}),
     note("Math",5.4,1,{date:"2027-01-01",annee:"2026/27"}),
   ];
-  const comparison=compareAnnualHistoryBacktest(grades,"2026/27",{iterations:100,seed:33});
+  const comparison=compareAnnualHistoryBacktest(grades.map(n=>({...n,subject_id:"math"})),"2026/27",{iterations:100,seed:33});
   assert.equal(comparison.annual.rows.length,2);
   assert.equal(comparison.history.rows.length,2);
   assert.equal(comparison.annual.rows[0].historyCount,3);
