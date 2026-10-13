@@ -74,4 +74,4 @@ export default function Insights() {
   </div></main>;
 }
 
-function Summary({ icon: Icon = null, label, value }) { return <div className="p-4 rounded-2xl" style={{ boxShadow: "8px 8px 16px #b8bdc4, -8px -6px 12px #ffffff" }}>{Icon && <Icon className="w-4 h-4 text-slate-500 mb-2" />}<p className="text-xs text-slate-500">{label}</p><p className="font-bold text-lg text-slate-700">{value}</p></div>; }
+function Summary({ icon: Icon = null, label, value }) { return <div className="p-4 rounded-2xl" style={{ boxShadow: "8px 8px 16px #b8bdc4, -8px -8px 16px #ffffff" }}>{Icon && <Icon className="w-4 h-4 text-slate-500 mb-2" />}<p className="text-xs text-slate-500">{label}</p><p className="font-bold text-lg text-slate-700">{value}</p></div>; }
