@@ -2,7 +2,7 @@ import { ANALYTICS_CONFIG } from "./config.js";
 import { calculateCompensation } from "./compensation.js";
 import { analyzeSubjects } from "./subjects.js";
 import { linearRegressionSlope, percentile, validCoefficient, weightedAverage } from "./statistics.js";
-import { evaluationTime, predictiveEligible, samePredictiveSubject, isEarlierSchoolYear, temporalWeight } from "./predictiveData.js";
+import { evaluationTime, predictiveEligible, samePredictiveSubject, historicalNotesBefore, temporalWeight } from "./predictiveData.js";
 
 export function createSeededRandom(seed = 2025) {
   let state = seed >>> 0;
@@ -40,14 +40,14 @@ export function buildPredictiveDistribution(history = [], options = {}) {
   if (reference == null) return null;
   const ordered = eligible.filter(n => samePredictiveSubject(n, anchor) && evaluationTime(n) <= reference);
   const current = ordered.filter(n => n.annee === year);
-  const prior = options.useHistory === false ? [] : ordered.filter(n => isEarlierSchoolYear(n.annee, year));
-  if (current.length < config.minTrendNotes) return null;
+  const prior = options.useHistory === false ? [] : historicalNotesBefore(ordered, year, reference);
+  if (!current.length || (current.length < config.minTrendNotes && !prior.length)) return null;
   const weights = [parameters.historicalWeight, parameters.recentWeight, parameters.trendWeight];
   if (weights.some(w => !Number.isFinite(w) || w < 0) || weights.reduce((a,b)=>a+b,0) <= 0) return null;
   const full = moments(current, reference, parameters.historyHalfLifeDays);
   const recent = moments(current.slice(-config.recentWindow), reference, parameters.historyHalfLifeDays);
   const trendNotes = current.slice(-Math.max(config.minTrendNotes, parameters.trendWindow));
-  const trend = linearRegressionSlope(trendNotes.map(n => Number(n.note)));
+  const trend = trendNotes.length >= config.minTrendNotes ? linearRegressionSlope(trendNotes.map(n => Number(n.note))) : 0;
   // A trend is an adjustment to a level, never a grade with a weight of its own.
   const sum = weights.reduce((a,b)=>a+b,0);
   let location = (full.average*weights[0] + recent.average*weights[1] +
@@ -65,12 +65,12 @@ export function buildPredictiveDistribution(history = [], options = {}) {
   // Shrink unstable variance toward a conservative prior, and include uncertainty in the level.
   const variance = (volatility.variance*Math.max(0,volatility.effectiveCount-1) + parameters.minimumSpread**2*parameters.priorStrength) /
     (Math.max(0,volatility.effectiveCount-1)+parameters.priorStrength);
-  const spread = Math.max(config.predictive.minimumSpread, parameters.minimumSpread, Math.sqrt(variance*(1+1/full.effectiveCount)));
+  const spread = Math.max(current.length < config.minTrendNotes ? config.predictive.minimumSparseSpread : 0, config.predictive.minimumSpread, parameters.minimumSpread, Math.sqrt(variance*(1+1/full.effectiveCount)));
   const iterations = Math.max(1, Math.min(20000, Math.floor(options.iterations || config.simulations)));
   const random = options.random || createSeededRandom(options.seed ?? 2025);
   const samples = Array.from({length:iterations}, () => generateProjectedGrade(location,spread,random,config.swiss)).sort((a,b)=>a-b);
   return { location, spread, iterations, samples, median:percentile(samples,.5), interval:[percentile(samples,.1),percentile(samples,.9)], parameters,
-    historyCount:current.length+prior.length, historicalCount:prior.length, effectiveCount:full.effectiveCount, historicalAverage, historyInfluence:influence };
+    historyCount:current.length+prior.length, historicalCount:prior.length, historicalNotes:prior, effectiveCount:full.effectiveCount, historicalAverage, historyInfluence:influence };
 }
 
 export function generateProjectedGrade(location, spread, random, limits = ANALYTICS_CONFIG.swiss) {
@@ -130,7 +130,7 @@ export function simulateAnnual(notes = [], settings = {}, options = {}) {
   }
   finals.sort((a, b) => a - b);
   return {
-    historicalCount: [...predictiveBySubject.values()].reduce((sum, model) => sum + (model?.historicalCount || 0), 0),
+    historicalCount: new Set([...predictiveBySubject.values()].flatMap(model => model?.historicalNotes || [])).size,
     iterations, median: percentile(finals, 0.5),
     // P10–P90 is an intentionally broad central 80% scenario interval.
     interval: [percentile(finals, 0.1), percentile(finals, 0.9)],

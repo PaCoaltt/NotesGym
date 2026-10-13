@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { reconcileSimulationSettings, updateSimulationSettings } from "../src/lib/analytics/simulationSettings.js";
 import { analyzeSubjects } from "../src/lib/analytics/subjects.js";
-import { annualPredictiveData, applySubjectLinks, legacySubjectKey, isEarlierSchoolYear } from "../src/lib/analytics/predictiveData.js";
+import { annualPredictiveData, applySubjectLinks, legacySubjectKey } from "../src/lib/analytics/predictiveData.js";
 import { buildPredictiveDistribution, simulateAnnual } from "../src/lib/analytics/monteCarlo.js";
 import { compareAnnualHistoryBacktest } from "../src/lib/lab/backtesting.js";
 const n=(id,subject='Math',extra={})=>({id,matiere:subject,note:4,date:'2026-09-0'+id,coefficient:1,annee:'Gym3',...extra});
@@ -35,9 +35,7 @@ test("excluded and historical notes do not consume annual evaluation slots",()=>
  const data=annualPredictiveData([...notes,n('5','Math',{exclue_bulletin:true}),n('6','Math',{matiere_hors_bulletin:true}),n('7','Math',{annee:'Gym2',archived:true})],'Gym3');
  assert.equal(reconcileSimulationSettings(plan(),analyzeSubjects(data.annualNotes)).Math.remaining,4);
 });
-test("Gym1/2/3 and Gym 4 have chronological levels without mixing calendar years",()=>{
- assert.equal(isEarlierSchoolYear('Gym2','Gym3'),true);assert.equal(isEarlierSchoolYear('Gym3','Gym 4'),true);
- assert.equal(isEarlierSchoolYear('Gym4','Gym3'),false);assert.equal(isEarlierSchoolYear('2025/26','Gym3'),false);
+test("Gym-labelled data still uses historical dates after manual subject links",()=>{
  const old=[n('1','Algebra',{annee:'Gym2',date:'2025-09-01',archived:true}),n('2','Algebra',{annee:'Gym2',date:'2025-10-01',archived:true}),n('3','Algebra',{annee:'Gym2',date:'2025-11-01',archived:true})];
  const current=notes.filter(x=>x.matiere==='Math');
  const linked=applySubjectLinks([...old,...current,n('5')],{[legacySubjectKey('Gym2','Algebra')]:legacySubjectKey('Gym3','Math')});

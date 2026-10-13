@@ -13,6 +13,7 @@ export const ANALYTICS_CONFIG = Object.freeze({
     recentWeight: 0.35,
     trendWeight: 0.1,
     minimumSpread: 0.5,
+    minimumSparseSpread: 1,
     priorStrength: 2,
     maximumHistoryInfluence: 0.25,
     maximumTrendAdjustment: 0.3,
