@@ -110,3 +110,34 @@ test("historical compensation only uses grades available at selected date", () =
   const before=replayAtDate(notes,{date:"2026-09-30"}); assert.equal(before.compensation.negativeSum,.5); assert.equal(before.compensation.positiveSum,1); assert.equal(before.compensation.isCompensated,true);
   assert.equal(replayAtDate(notes,{date:"2026-12-31"}).count,3);
 });
+
+import { compareAnnualHistoryBacktest } from "../src/lib/lab/backtesting.js";
+
+test("predictive history never changes the official annual result when no future grades are simulated", () => {
+  const current=[note("Math",5,1,{date:"2026-09-10",annee:"2026/27"}),note("Math",5.5,1,{date:"2026-10-10",annee:"2026/27"}),note("Math",4.5,1,{date:"2026-11-10",annee:"2026/27"})];
+  const old=[note("Math",2,1,{date:"2024-09-10",annee:"2024/25",archived:true}),note("Math",2.5,1,{date:"2025-02-10",annee:"2024/25",archived:true}),note("Math",3,1,{date:"2025-09-10",annee:"2025/26",archived:true})];
+  const result=simulateSemester(current,{Math:{remaining:0,coefficient:1}},{iterations:50,seed:12,predictiveNotes:[...old,...current]});
+  assert.equal(result.median,weightedAverage(current));
+  assert.deepEqual(result.interval,[weightedAverage(current),weightedAverage(current)]);
+});
+
+test("annual versus full-history backtest uses paired targets and only earlier grades", () => {
+  const grades=[
+    note("Math",3.5,1,{date:"2025-09-01",annee:"2025/26"}),
+    note("Math",4,1,{date:"2025-10-01",annee:"2025/26"}),
+    note("Math",4.5,1,{date:"2025-11-01",annee:"2025/26"}),
+    note("Math",4.6,1,{date:"2026-09-01",annee:"2026/27"}),
+    note("Math",4.8,1,{date:"2026-10-01",annee:"2026/27"}),
+    note("Math",5,1,{date:"2026-11-01",annee:"2026/27"}),
+    note("Math",5.2,1,{date:"2026-12-01",annee:"2026/27"}),
+    note("Math",5.4,1,{date:"2027-01-01",annee:"2026/27"}),
+  ];
+  const comparison=compareAnnualHistoryBacktest(grades,"2026/27",{iterations:100,seed:33});
+  assert.equal(comparison.annual.rows.length,2);
+  assert.equal(comparison.history.rows.length,2);
+  assert.equal(comparison.annual.rows[0].historyCount,3);
+  assert.equal(comparison.history.rows[0].historyCount,6);
+  assert.equal(comparison.annual.rows[0].actual,5.2);
+  assert.equal(comparison.history.rows[0].actual,5.2);
+  assert.equal(comparison.annual.rows[0].date,"2026-12-01");
+});
