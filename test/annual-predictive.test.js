@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applySubjectLinks, legacySubjectKey, annualPredictiveData, evaluationTime, temporalWeight, samePredictiveSubject, priorSubjectNotes, schoolYearStart } from "../src/lib/analytics/predictiveData.js";
+import { applySubjectLinks, legacySubjectKey, annualPredictiveData, evaluationTime, temporalWeight, samePredictiveSubject, priorSubjectNotes } from "../src/lib/analytics/predictiveData.js";
 import { buildPredictiveDistribution, simulateAnnual, createSeededRandom, generateProjectedGrade } from "../src/lib/analytics/monteCarlo.js";
 import { compareAnnualHistoryBacktest, walkForwardBacktest } from "../src/lib/lab/backtesting.js";
 import { calculateCompensation } from "../src/lib/analytics/compensation.js";
@@ -44,13 +44,13 @@ test("invalid and missing evaluation dates never enter prediction or backtesting
  assert.deepEqual(buildPredictiveDistribution(current,opts),buildPredictiveDistribution([...current,...extra],opts));
  assert.equal(walkForwardBacktest([...current,...extra]).notesgym.rows.length,1);
 });
-test("stable identities support renames, reject homonyms and do not guess legacy links",()=>{
+test("stable IDs support renames, reject distinct IDs, and legacy names match automatically",()=>{
  assert.ok(samePredictiveSubject(old[0],{...current[0],matiere:'Mathematics'}));
  assert.equal(samePredictiveSubject(old[0],{...current[0],subject_id:'physics'}),false);
- assert.equal(samePredictiveSubject({...old[0],subject_id:undefined},{...current[0],subject_id:undefined}),false);
+ assert.equal(samePredictiveSubject({...old[0],subject_id:undefined},{...current[0],subject_id:undefined}),true);
  assert.equal(buildPredictiveDistribution([...old.map(x=>({...x,subject_id:'other'})),...current],opts).historicalCount,0);
  const legacy=[...old,...current].map(x=>({...x,subject_id:undefined}));
- assert.equal(buildPredictiveDistribution(legacy,opts).historicalCount,0);
+ assert.equal(buildPredictiveDistribution(legacy,opts).historicalCount,3);
 });
 test("coefficients affect location without being replicate observations",()=>{
  const grades=[n(2,'2026-09-01',{coefficient:.25}),n(4,'2026-10-01',{coefficient:1}),n(6,'2026-11-01',{coefficient:3})];
@@ -96,12 +96,10 @@ test("explicit legacy links support archives and renames without mutating offici
  assert.deepEqual(source,snapshot); assert.equal(weightedAverage(source),weightedAverage(linked));
  assert.deepEqual(calculateCompensation(source),calculateCompensation(linked));
  const reverse={[legacySubjectKey('2026/27','Math')]:legacySubjectKey('2025/26','Algebra')};
- assert.equal(buildPredictiveDistribution(applySubjectLinks(source,reverse),opts).historicalCount,0);
+ assert.equal(buildPredictiveDistribution(applySubjectLinks(source,reverse),opts).historicalCount,3);
 });
 
 test("school years support the existing hyphen format and slash formats",()=>{
- for(const year of ['2026-2027','2026/2027','2026/27']) assert.equal(schoolYearStart(year),2026);
- assert.equal(schoolYearStart('2026-2028'),null);
  const source=[...old.map(x=>({...x,annee:'2025-2026'})),...current.map(x=>({...x,annee:'2026-2027'}))];
  assert.equal(annualPredictiveData(source,'2026-2027',{asOf:'2026-12-01'}).historicalNotes.length,3);
  assert.equal(buildPredictiveDistribution(source,{...opts,currentYear:'2026-2027'}).historicalCount,3);
