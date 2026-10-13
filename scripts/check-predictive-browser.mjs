@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { pathToFileURL } from 'node:url';
 import { mkdir } from 'node:fs/promises';
+import { reconcileAccountSimulationPlans, patchAccountSimulationPlans, migrateAccountSimulationPlans } from '../src/lib/analytics/accountSimulationSettings.js';
 const modulePath=process.argv[2];
 const { chromium }=await import(modulePath ? pathToFileURL(modulePath).href : 'playwright');
 const base=process.argv[3] || 'http://127.0.0.1:5178';
@@ -16,8 +17,18 @@ try {
   await context.addInitScript(()=>{localStorage.setItem('notesgym_language','fr');localStorage.setItem('notesgym_patch_navigation-ux-update_qa','1');localStorage.setItem('notesgym_patch_navigation-ux-update_qa-other','1');history.replaceState({usr:{filter:{year:sessionStorage.getItem('qa_target_year') || 'Ma classe actuelle',semester:'Semestre 1'}}},'');});
   let account='qa';
   await page.route('**/api/auth/me',route=>route.fulfill({json:{id:account,email:account+'@example.invalid'}}));
+  const accountPlans=new Map();
   let currentNotes=[...notes];
   await page.route('**/api/notes',route=>route.fulfill({json:currentNotes}));
+  await page.route('**/api/simulation-settings**',route=>{
+   const record=accountPlans.get(account)||{plans:{},revision:0};
+   const request=route.request(); const body=request.method()==='GET'?{}:request.postDataJSON();
+   if(request.method()!=='GET'&&body.accountId!==account) return route.fulfill({status:403,json:{error:'Account changed'}});
+   const plans=request.method()==='PATCH'?patchAccountSimulationPlans(record.plans,currentNotes,body.changes)
+    :request.method()==='POST'?migrateAccountSimulationPlans(record.plans,currentNotes,body.plans):reconcileAccountSimulationPlans(record.plans,currentNotes);
+   const next={plans,revision:record.revision+Number(JSON.stringify(plans)!==JSON.stringify(record.plans))};
+   accountPlans.set(account,next);return route.fulfill({json:{accountId:account,...next}});
+  });
   await page.goto(base+'/Insights');
   await page.getByRole('switch').waitFor();
   assert.equal(await page.getByRole('switch').getAttribute('aria-checked'),'true');
@@ -46,7 +57,7 @@ try {
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Insights overflows viewport');
   const remaining=page.getByRole('spinbutton',{name:'Math Évaluations restantes cette année'});
   const coefficient=page.getByRole('spinbutton',{name:'Math Coefficient moyen attendu'});
-  await remaining.fill('4'); await coefficient.fill('2');
+  await remaining.fill('4'); await coefficient.fill('2'); await page.getByText('Paramètres synchronisés avec le compte.',{exact:true}).waitFor();
   await page.reload(); await remaining.waitFor();
   assert.equal(await remaining.inputValue(),'4'); assert.equal(await coefficient.inputValue(),'2');
   currentNotes.push({id:'added-grade',matiere:'Math',note:4.7,coefficient:1,annee:'Ma classe actuelle',semestre:'Semestre 2',date:'2026-10-04'});
@@ -59,7 +70,7 @@ try {
   currentNotes.push(...notes.filter(n=>!n.archived).slice(0,3).map(n=>({...n,id:'next-year-'+n.id,annee:'Après'})));
   await page.evaluate(()=>sessionStorage.setItem('qa_target_year','Après'));
   await page.reload(); await remaining.waitFor(); assert.equal(await remaining.inputValue(),'2');
-  await remaining.fill('8'); await page.reload(); await remaining.waitFor(); assert.equal(await remaining.inputValue(),'8');
+  await remaining.fill('8'); await page.getByText('Paramètres synchronisés avec le compte.',{exact:true}).waitFor(); await page.reload(); await remaining.waitFor(); assert.equal(await remaining.inputValue(),'8');
   await page.evaluate(()=>sessionStorage.setItem('qa_target_year','Ma classe actuelle'));
   await page.reload(); await remaining.waitFor(); assert.equal(await remaining.inputValue(),'3');
   account='qa-other';

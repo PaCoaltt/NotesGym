@@ -36,6 +36,11 @@ export const base44 = {
       }),
     redirectToLogin: () => {},
   },
+  simulationSettings: {
+    get: () => apiRequest("/api/simulation-settings"),
+    patch: (changes, accountId, requestId) => apiRequest("/api/simulation-settings", { method: "PATCH", keepalive: true, body: JSON.stringify({ changes, accountId, requestId }) }),
+    migrate: (plans, accountId) => apiRequest("/api/simulation-settings/migrate", { method: "POST", body: JSON.stringify({ plans, accountId }) }),
+  },
   entities: {
     Note: {
       list: () => apiRequest("/api/notes"),
