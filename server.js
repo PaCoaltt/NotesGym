@@ -4,6 +4,8 @@ import path from "node:path";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 
+import { reconcileAccountSimulationPlans, patchAccountSimulationPlans, migrateAccountSimulationPlans } from "./src/lib/analytics/accountSimulationSettings.js";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 8080);
 const DATA_DIR = process.env.NOTESGYM_DATA_DIR || path.join(__dirname, "data");
@@ -11,6 +13,7 @@ const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 
 const USERS_FILE = path.join(DATA_DIR, "users.json");
 const NOTES_FILE = path.join(DATA_DIR, "notes.json");
+const SIMULATION_SETTINGS_FILE = path.join(DATA_DIR, "simulation-settings.json");
 const PUBLIC_DIR = path.join(__dirname, "dist");
 
 const sessions = new Map();
@@ -24,6 +27,7 @@ async function ensureDataFiles() {
   await fs.mkdir(DATA_DIR, { recursive: true });
   await ensureFile(USERS_FILE, []);
   await ensureFile(NOTES_FILE, []);
+  await ensureFile(SIMULATION_SETTINGS_FILE, []);
   await seedUsersFromEnv();
 }
 
@@ -203,6 +207,32 @@ async function requireUser(req, res) {
   return user;
 }
 
+// Serialize the entire read/modify/write transaction, not just the final file write.
+let simulationSettingsQueue = Promise.resolve();
+function accountSimulationSettings(user, operation = "read", payload, requestId) {
+  const job = async () => {
+    const records = JSON.parse(await fs.readFile(SIMULATION_SETTINGS_FILE, "utf8"));
+    if (!Array.isArray(records)) throw new Error("Invalid simulation settings store");
+    const index = records.findIndex(record => record.user_id === user.id);
+    const previous = index < 0 ? { user_id: user.id, plans: {}, revision: 0 } : records[index];
+    const notes = (await readJson(NOTES_FILE, [])).filter(note => note.created_by === user.email);
+    const replay = operation === "patch" && (previous.requestIds || []).includes(requestId);
+    const plans = operation === "patch" && !replay ? patchAccountSimulationPlans(previous.plans, notes, payload)
+      : operation === "migrate" ? migrateAccountSimulationPlans(previous.plans, notes, payload)
+        : reconcileAccountSimulationPlans(previous.plans, notes);
+    const changed = JSON.stringify(plans) !== JSON.stringify(previous.plans);
+    const requestIds = operation === "patch" && !replay ? [...(previous.requestIds || []), requestId].slice(-1000) : previous.requestIds || [];
+    const next = { ...previous, plans, requestIds, revision: previous.revision + Number(changed) };
+    if (changed || (operation === "patch" && !replay) || index < 0) {
+      if (index < 0) records.push(next); else records[index] = next;
+      await writeJson(SIMULATION_SETTINGS_FILE, records);
+    }
+    return { accountId: user.id, plans: next.plans, revision: next.revision };
+  };
+  simulationSettingsQueue = simulationSettingsQueue.then(job, job);
+  return simulationSettingsQueue;
+}
+
 async function handleApi(req, res, url) {
   try {
     if (url.pathname === "/api/health") {
@@ -235,6 +265,27 @@ async function handleApi(req, res, url) {
       const user = await requireUser(req, res);
       if (!user) return;
       return sendJson(res, 200, publicUser(user));
+    }
+
+    if (url.pathname === "/api/simulation-settings" && req.method === "GET") {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      return sendJson(res, 200, await accountSimulationSettings(user));
+    }
+    if (url.pathname === "/api/simulation-settings" && req.method === "PATCH") {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      if (body.accountId !== user.id) return sendError(res, 403, "Account changed");
+      if (typeof body.requestId !== "string" || !body.requestId || body.requestId.length > 128) return sendError(res, 400, "Request ID required");
+      return sendJson(res, 200, await accountSimulationSettings(user, "patch", body.changes, body.requestId));
+    }
+    if (url.pathname === "/api/simulation-settings/migrate" && req.method === "POST") {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      if (body.accountId !== user.id) return sendError(res, 403, "Account changed");
+      return sendJson(res, 200, await accountSimulationSettings(user, "migrate", body.plans));
     }
 
     if (url.pathname === "/api/notes" && req.method === "GET") {
@@ -346,7 +397,7 @@ async function handleApi(req, res, url) {
 
     return sendError(res, 404, "Not found");
   } catch (error) {
-    return sendError(res, 500, error.message || "Server error");
+    return sendError(res, error.status || 500, error.message || "Server error");
   }
 }
 
@@ -391,12 +442,13 @@ function contentType(file) {
 
 await ensureDataFiles();
 
-createServer(async (req, res) => {
+const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   if (url.pathname.startsWith("/api/")) {
     return handleApi(req, res, url);
   }
   return serveStatic(req, res, url);
-}).listen(PORT, () => {
-  console.log(`NotesGym is running on http://localhost:${PORT}`);
+});
+server.listen(PORT, () => {
+  console.log(`NotesGym is running on http://localhost:${server.address().port}`);
 });

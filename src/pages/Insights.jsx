@@ -40,7 +40,7 @@ export default function Insights() {
 
   const analysis = useMemo(() => analyzeSemester(annualNotes), [annualNotes]);
   const insights = useMemo(() => generateInsights(annualNotes).slice(0, 5), [annualNotes]);
-  const { settings, onChange: saveSettings } = useSimulationSettings(user?.id || user?.email || "local", activeYear, analysis.subjects);
+  const { settings, onChange: saveSettings, isLoading: settingsLoading, isSaving, syncError, retry: retrySettings } = useSimulationSettings(user?.id || user?.email || "local", activeYear, analysis.subjects);
   const [runRevision, setRunRevision] = useState(0);
   const simulation = useMemo(() => {
     void runRevision;
@@ -62,7 +62,7 @@ export default function Insights() {
       <section><h2 className="section-title">{t.mainInsights}</h2><div className="grid md:grid-cols-2 gap-4">{insights.map((insight) => <InsightCard key={insight.id} insight={insight} t={t} />)}</div></section>
       <section className="neu-card"><h2 className="text-xl font-bold text-slate-700 mb-4">{t.subjectTrends}</h2><TrendList subjects={analysis.subjects} t={t} /></section>
       <SimulationCard result={simulation} t={t} />
-      <SimulationSettings subjects={analysis.subjects} settings={settings} onChange={saveSettings} onRun={() => setRunRevision(value => value + 1)} t={t} />
+      <SimulationSettings subjects={analysis.subjects} settings={settings} onChange={saveSettings} onRun={() => setRunRevision(value => value + 1)} t={t} isLoading={settingsLoading} isSaving={isSaving} syncError={syncError} onRetry={retrySettings} />
     </div>}
   </div></main>;
 }

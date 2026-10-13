@@ -14,14 +14,15 @@ export function reconcileSimulationSettings(saved = {}, subjects = []) {
   for (const subject of subjects) {
     const key = subject.subject;
     const ids = [...new Set(subject.notes.map(noteKey))].sort();
-    const previous = saved[key];
+    const previous = Object.hasOwn(saved, key) ? saved[key] : undefined;
     const known = Array.isArray(previous?.knownNoteIds) ? previous.knownNoteIds : ids;
     const added = ids.filter(id => !known.includes(id)).length;
-    result[key] = {
+    Object.defineProperty(result, key, { enumerable: true, configurable: true, writable: true, value: {
+      ...previous,
       remaining: previous ? Math.max(0, clampRemaining(previous.remaining) - added) : 2,
       coefficient: coefficient(previous?.coefficient, coefficient(Math.round(Number(subject.averageCoefficient) * 10) / 10)),
       knownNoteIds: [...new Set([...known, ...ids])].sort(),
-    };
+    } });
   }
   return result;
 }
@@ -33,8 +34,8 @@ export function updateSimulationSettings(saved, subjects, updates) {
     if (!updates[subject]) continue;
     result[subject] = {
       ...result[subject],
-      remaining: clampRemaining(updates[subject].remaining),
-      coefficient: coefficient(updates[subject].coefficient, result[subject].coefficient),
+      remaining: Object.hasOwn(updates[subject], "remaining") ? clampRemaining(updates[subject].remaining) : result[subject].remaining,
+      coefficient: Object.hasOwn(updates[subject], "coefficient") ? coefficient(updates[subject].coefficient, result[subject].coefficient) : result[subject].coefficient,
     };
   }
   return result;
