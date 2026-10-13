@@ -22,3 +22,11 @@ export const insightsTranslations = {
 };
 
 export const interpolate = (text, values = {}) => String(text || "").replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
+
+insightsTranslations.fr.historyIdentityHelp="L’historique interannuel exige un identifiant stable ou une association de matière confirmée ci-dessous. Sans association, les anciennes données restent limitées à leur année. Les dates invalides sont ignorées par le modèle.";
+insightsTranslations.en.historyIdentityHelp="Cross-year history requires a stable subject ID or a confirmed link below. Unlinked legacy data stays within its year. Invalid dates are omitted from the model.";
+insightsTranslations.de.historyIdentityHelp="Jahresübergreifende Historie benötigt stabile Fach-IDs oder eine bestätigte Zuordnung unten. Nicht zugeordnete Altdaten bleiben auf ihr Jahr beschränkt. Ungültige Daten werden im Modell ausgelassen.";
+
+Object.assign(insightsTranslations.fr,{linkHistory:"Associer les matières historiques",linkHistoryHelp:"Confirmez uniquement les matières qui correspondent réellement. Ces associations restent sur cet appareil et servent uniquement aux prédictions et au Lab. Aucune association n’est automatique.",noHistoryLink:"Ne pas associer"});
+Object.assign(insightsTranslations.en,{linkHistory:"Link historical subjects",linkHistoryHelp:"Confirm only subjects that truly correspond. Links stay on this device and only affect predictions and Lab. Nothing is matched automatically.",noHistoryLink:"Do not link"});
+Object.assign(insightsTranslations.de,{linkHistory:"Historische Fächer zuordnen",linkHistoryHelp:"Nur tatsächlich entsprechende Fächer bestätigen. Zuordnungen bleiben auf diesem Gerät und betreffen nur Prognosen und Lab. Keine automatische Zuordnung.",noHistoryLink:"Nicht zuordnen"});

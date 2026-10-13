@@ -1,48 +1,61 @@
 import { buildPredictiveDistribution } from "../analytics/monteCarlo.js";
+import { evaluationTime, predictiveEligible, priorSubjectNotes } from "../analytics/predictiveData.js";
 import { percentile, weightedAverage } from "../analytics/statistics.js";
 import { bootstrapDistribution } from "./bootstrap.js";
 
 export const MIN_BACKTEST_HISTORY = 3;
 export function sortForBacktest(notes = []) {
-  return notes.map((note,index)=>({note,index})).sort((a,b)=>String(a.note.date||a.note.created_date||"").localeCompare(String(b.note.date||b.note.created_date||"")) || String(a.note.id||"").localeCompare(String(b.note.id||"")) || a.index-b.index).map(x=>x.note);
+  return predictiveEligible(notes).filter(n => evaluationTime(n) != null).sort((a,b) =>
+    evaluationTime(a)-evaluationTime(b) || String(a.id || "").localeCompare(String(b.id || "")));
 }
-function empirical(history) { const values=history.map(n=>Number(n.note)).sort((a,b)=>a-b); return { median:weightedAverage(history), interval:[percentile(values,.1),percentile(values,.9)] }; }
+function empirical(history) {
+  const values=history.map(n=>Number(n.note)).sort((a,b)=>a-b);
+  return {median:weightedAverage(history),interval:[percentile(values,.1),percentile(values,.9)]};
+}
 export function backtestMetrics(rows=[]) {
   if (!rows.length) return null;
-  const absolute=rows.map(r=>Math.abs(r.error));
-  return { count:rows.length, mae:absolute.reduce((a,b)=>a+b,0)/rows.length, medianAbsoluteError:percentile([...absolute].sort((a,b)=>a-b),.5), bias:rows.reduce((s,r)=>s+(r.predicted-r.actual),0)/rows.length, coverage:rows.filter(r=>r.actual>=r.p10&&r.actual<=r.p90).length/rows.length, averageWidth:rows.reduce((s,r)=>s+r.p90-r.p10,0)/rows.length };
+  const absolute=rows.map(r=>Math.abs(r.predicted-r.actual));
+  return {count:rows.length,mae:absolute.reduce((a,b)=>a+b,0)/rows.length,
+    medianAbsoluteError:percentile([...absolute].sort((a,b)=>a-b),.5),
+    bias:rows.reduce((s,r)=>s+r.predicted-r.actual,0)/rows.length,
+    coverage:rows.filter(r=>r.actual>=r.p10&&r.actual<=r.p90).length/rows.length,
+    averageWidth:rows.reduce((s,r)=>s+r.p90-r.p10,0)/rows.length};
 }
-export function walkForwardBacktest(notes=[], options={}) {
-  const ordered=sortForBacktest(notes); const iterations=options.iterations||2000; const seed=options.seed??482917;
-  const models={notesgym:[],bootstrap:[],baseline:[]};
-  for(let index=MIN_BACKTEST_HISTORY;index<ordered.length;index++) {
-    const history=ordered.slice(0,index); const actual=Number(ordered[index].note);
-    const outputs={ notesgym:buildPredictiveDistribution(history,{iterations,seed:seed+index,parameters:options.parameters}), bootstrap:bootstrapDistribution(history,{iterations,seed:seed+index}), baseline:empirical(history) };
-    for(const [model,result] of Object.entries(outputs)) if(result) models[model].push({index,date:ordered[index].date||ordered[index].created_date||"—",predicted:result.median,p10:result.interval[0],p90:result.interval[1],actual,error:actual-result.median,historyCount:history.length});
-  }
-  return Object.fromEntries(Object.entries(models).map(([key,rows])=>[key,{rows,metrics:backtestMetrics(rows)}]));
+const row=(target,index,result,historyCount)=>({index,date:target.date,actual:Number(target.note),predicted:result.median,
+  p10:result.interval[0],p90:result.interval[1],error:Number(target.note)-result.median,historyCount});
+const summarize=models=>Object.fromEntries(Object.entries(models).map(([key,rows])=>[key,{rows,metrics:backtestMetrics(rows)}]));
+
+export function walkForwardBacktest(notes=[],options={}) {
+  const ordered=sortForBacktest(notes); const models={notesgym:[],bootstrap:[],baseline:[]};
+  ordered.forEach((target,index)=>{
+    const history=priorSubjectNotes(ordered,target,{useHistory:false});
+    if(history.length<MIN_BACKTEST_HISTORY) return;
+    const settings={iterations:options.iterations||2000,seed:(options.seed??482917)+index,parameters:options.parameters,
+      subjectNote:target,currentYear:target.annee,asOf:target.date,useHistory:false};
+    const outputs={notesgym:buildPredictiveDistribution(history,settings),bootstrap:bootstrapDistribution(history,settings),baseline:empirical(history)};
+    if(Object.values(outputs).some(value=>!value)) return;
+    for(const [model,result] of Object.entries(outputs)) models[model].push(row(target,index,result,history.length));
+  });
+  return summarize(models);
 }
 
-/**
- * Compare predictions for grades in one school year using only earlier grades
- * from that year versus every earlier grade available for the same subject.
- * Both models predict exactly the same targets and never see future grades.
- */
-export function compareAnnualHistoryBacktest(notes=[], targetYear, options={}) {
-  if (!targetYear || targetYear === "all") return { annual:{rows:[],metrics:null}, history:{rows:[],metrics:null} };
-  const ordered=sortForBacktest(notes); const iterations=options.iterations||2000; const seed=options.seed??719431;
+/** Strict date cutoff excludes all same-day grades, regardless of IDs or input order. */
+export function compareAnnualHistoryBacktest(notes=[],targetYear,options={}) {
   const paired={annual:[],history:[]};
+  if(!targetYear || targetYear==='all') return summarize(paired);
+  const ordered=sortForBacktest(notes);
   ordered.forEach((target,index)=>{
     if(target.annee!==targetYear) return;
-    const prior=ordered.slice(0,index);
-    const annualHistory=prior.filter(note=>note.annee===targetYear);
-    if(annualHistory.length<MIN_BACKTEST_HISTORY || prior.length<MIN_BACKTEST_HISTORY) return;
-    const annualResult=buildPredictiveDistribution(annualHistory,{iterations,seed:seed+index,parameters:options.parameters});
-    const historyResult=buildPredictiveDistribution(prior,{iterations,seed:seed+index,parameters:options.parameters});
-    if(!annualResult || !historyResult) return;
-    const actual=Number(target.note); const base={index,date:target.date||target.created_date||"—",actual};
-    paired.annual.push({...base,predicted:annualResult.median,p10:annualResult.interval[0],p90:annualResult.interval[1],error:actual-annualResult.median,historyCount:annualHistory.length});
-    paired.history.push({...base,predicted:historyResult.median,p10:historyResult.interval[0],p90:historyResult.interval[1],error:actual-historyResult.median,historyCount:prior.length});
+    const annual=priorSubjectNotes(ordered,target,{useHistory:false});
+    if(annual.length<MIN_BACKTEST_HISTORY) return;
+    const history=priorSubjectNotes(ordered,target);
+    const settings={iterations:options.iterations||2000,seed:(options.seed??719431)+index,parameters:options.parameters,
+      subjectNote:target,currentYear:targetYear,asOf:target.date};
+    const a=buildPredictiveDistribution(annual,{...settings,useHistory:false});
+    const b=buildPredictiveDistribution(history,settings);
+    if(!a || !b) return;
+    paired.annual.push(row(target,index,a,annual.length));
+    paired.history.push(row(target,index,b,history.length));
   });
-  return Object.fromEntries(Object.entries(paired).map(([key,rows])=>[key,{rows,metrics:backtestMetrics(rows)}]));
+  return summarize(paired);
 }
