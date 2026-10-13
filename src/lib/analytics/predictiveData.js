@@ -15,6 +15,15 @@ export function schoolYearStart(year) {
   return Number(match[2]) === (match[2].length === 2 ? (start + 1) % 100 : start + 1) ? start : null;
 }
 
+/** Calendar years and explicitly numbered gymnasium levels are distinct scales. */
+export function isEarlierSchoolYear(previous, current) {
+  const before = schoolYearStart(previous); const after = schoolYearStart(current);
+  if (before != null && after != null) return before < after;
+  const gymLevel = value => /^gym(?:nase)?\s*(\d+)$/i.exec(String(value || "").trim());
+  const left = gymLevel(previous); const right = gymLevel(current);
+  return Boolean(left && right && Number(left[1]) < Number(right[1]));
+}
+
 export const stableSubjectId = note => note?.matiere_id ?? note?.subject_id ?? null;
 export const legacySubjectKey = (year, subject) => JSON.stringify([year, String(subject || "").trim()]);
 
@@ -29,8 +38,7 @@ export function applySubjectLinks(notes, links = {}) {
       visited.add(key);
       let from; let to;
       try { from = JSON.parse(key); to = JSON.parse(links[key]); } catch { break; }
-      const start = schoolYearStart(from[0]); const end = schoolYearStart(to[0]);
-      if (start == null || end == null || start >= end || !to[1]) break;
+      if (!isEarlierSchoolYear(from[0], to[0]) || !to[1]) break;
       key = links[key];
     }
     return { ...note, subject_id: `legacy-confirmed:${key}` };
@@ -52,12 +60,12 @@ export function temporalWeight(ageInDays, halfLifeDays = 365) {
 }
 
 export function priorSubjectNotes(notes, target, { useHistory = true } = {}) {
-  const cutoff = evaluationTime(target); const year = schoolYearStart(target.annee);
+  const cutoff = evaluationTime(target);
   if (cutoff == null) return [];
   return predictiveEligible(notes).filter(note => {
-    const time = evaluationTime(note); const previousYear = schoolYearStart(note.annee);
+    const time = evaluationTime(note);
     return time != null && time < cutoff && samePredictiveSubject(note, target) &&
-      (note.annee === target.annee || (useHistory && year != null && previousYear != null && previousYear < year));
+      (note.annee === target.annee || (useHistory && isEarlierSchoolYear(note.annee, target.annee)));
   });
 }
 
@@ -65,10 +73,10 @@ export function priorSubjectNotes(notes, target, { useHistory = true } = {}) {
 export function annualPredictiveData(notes, year, { useHistory = true, asOf = new Date().toISOString().slice(0, 10) } = {}) {
   const annualNotes = usableNotes(notes).filter(note => !note.archived && note.annee === year);
   const reference = { date: asOf };
-  const cutoff = evaluationTime(reference); const start = schoolYearStart(year);
+  const cutoff = evaluationTime(reference);
   const historicalNotes = useHistory && cutoff != null ? predictiveEligible(notes).filter(note => {
-    const priorYear = schoolYearStart(note.annee); const time = evaluationTime(note);
-    return start != null && priorYear != null && priorYear < start && time != null && time < cutoff &&
+    const time = evaluationTime(note);
+    return isEarlierSchoolYear(note.annee, year) && time != null && time < cutoff &&
       annualNotes.some(current => samePredictiveSubject(note, current));
   }) : [];
   return { annualNotes, historicalNotes, predictiveNotes: [...annualNotes, ...historicalNotes] };

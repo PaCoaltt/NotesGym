@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Activity, Gauge, History, TrendingUp } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/lib/AuthContext";
+import { useSimulationSettings } from "@/components/insights/useSimulationSettings";
 import { base44 } from "@/api/base44Client";
 import { analyzeSemester } from "@/lib/analytics/subjects";
 import { generateInsights } from "@/lib/analytics/insights";
@@ -22,6 +24,7 @@ function latestActiveYear(notes = []) {
 }
 
 export default function Insights() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const language = location.state?.language || localStorage.getItem("notesgym_language") || "fr";
@@ -37,11 +40,12 @@ export default function Insights() {
 
   const analysis = useMemo(() => analyzeSemester(annualNotes), [annualNotes]);
   const insights = useMemo(() => generateInsights(annualNotes).slice(0, 5), [annualNotes]);
-  const initialSettings = useMemo(() => Object.fromEntries(analysis.subjects.map((item) => [item.subject, { remaining: 2, coefficient: Number(item.averageCoefficient.toFixed(1)) }])), [analysis.subjects]);
-  const [settings, setSettings] = useState({});
-  const [simulationSettings, setSimulationSettings] = useState({});
-  const effectiveSettings = Object.keys(settings).length ? settings : initialSettings;
-  const simulation = useMemo(() => simulateAnnual(annualNotes, Object.keys(simulationSettings).length ? simulationSettings : initialSettings, { seed: 2025, predictiveNotes, currentYear: activeYear, asOf, useHistory }), [annualNotes, predictiveNotes, simulationSettings, initialSettings, activeYear, asOf, useHistory]);
+  const { settings, onChange: saveSettings } = useSimulationSettings(user?.id || user?.email || "local", activeYear, analysis.subjects);
+  const [runRevision, setRunRevision] = useState(0);
+  const simulation = useMemo(() => {
+    void runRevision;
+    return simulateAnnual(annualNotes, settings, { seed: 2025, predictiveNotes, currentYear: activeYear, asOf, useHistory });
+  }, [annualNotes, predictiveNotes, settings, activeYear, asOf, useHistory, runRevision]);
   const historicalCount = simulation?.historicalCount || 0;
 
   const toggleHistory = () => setUseHistory((current) => {
@@ -58,7 +62,7 @@ export default function Insights() {
       <section><h2 className="section-title">{t.mainInsights}</h2><div className="grid md:grid-cols-2 gap-4">{insights.map((insight) => <InsightCard key={insight.id} insight={insight} t={t} />)}</div></section>
       <section className="neu-card"><h2 className="text-xl font-bold text-slate-700 mb-4">{t.subjectTrends}</h2><TrendList subjects={analysis.subjects} t={t} /></section>
       <SimulationCard result={simulation} t={t} />
-      <SimulationSettings subjects={analysis.subjects} settings={effectiveSettings} onChange={setSettings} onRun={() => setSimulationSettings(effectiveSettings)} t={t} />
+      <SimulationSettings subjects={analysis.subjects} settings={settings} onChange={saveSettings} onRun={() => setRunRevision(value => value + 1)} t={t} />
     </div>}
   </div></main>;
 }
