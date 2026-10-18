@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "notesgym",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Read your NotesGym grades, explore computed insights and simulate future grades without changing your records.",
   "repository": "https://github.com/PaCoaltt/NotesGym",
   "keywords": ["education", "grades", "read-only"],

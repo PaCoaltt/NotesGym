@@ -5,7 +5,8 @@ import { calculateCompensation } from '../src/lib/analytics/compensation.js';
 import { weightedAverage } from '../src/lib/analytics/statistics.js';
 
 const text = z.string().trim().min(1).max(160);
-const filters = { year: text.optional(), semester: text.optional(), subject: text.optional() };
+const filters = { year: text.optional(), semester: text.optional(), subject: text.optional(),
+  scope: z.enum(['period', 'year', 'history']).default('period'), years: z.array(text).min(2).max(20).optional(), include_archived: z.boolean().default(false) };
 const grade = z.object({ subject: text, grade: z.number().min(1).max(6), coefficient: z.number().positive().max(100).default(1) }).strict();
 const nullableNumber = z.number().finite().nullable();
 const trend = z.object({ key: z.string(), slope: z.number(), reliable: z.boolean() }).strict();
@@ -44,6 +45,38 @@ export const toolDefinitions = {
     input: z.object(filters).strict(), output: z.object({ insights: z.array(insight).max(12) }).strict() },
 };
 
+const periodSchema = z.object({ scope: z.enum(['period', 'year', 'history']), years: z.array(z.string()).max(20), semester: z.string().nullable() }).strict();
+for (const definition of Object.values(toolDefinitions)) {
+  definition.output = definition.output.extend({ period: periodSchema });
+  definition.description += ' Defaults to a single unambiguous active period; PERIOD_REQUIRED lists available periods. Set scope=year for an annual analysis, or scope=history with years and include_archived=true to explicitly compare historical years (except simulate_grade, which requires year and semester).';
+}
+
+export function resolvePeriod(args, ownNotes) {
+  const scope = args.scope || 'period';
+  const invalid = () => { throw Object.assign(new Error('Use year/semester, scope=year, or scope=history with at least two distinct years; do not combine year and years'), { code: 'INVALID_PERIOD' }); };
+  if ((args.years && scope !== 'history') || (scope === 'history' && (args.year || new Set(args.years || []).size < 2)) || (scope === 'year' && args.semester)) invalid();
+  const candidates = ownNotes.filter(n => (args.include_archived || !n.archived) && (args.include_excluded || (!n.exclue_bulletin && !n.matiere_hors_bulletin)));
+  const periods = [...new Map(candidates.map(n => [JSON.stringify([n.annee, n.semestre]), { year: n.annee, semester: n.semestre }])).values()]
+    .sort((a, b) => a.year.localeCompare(b.year) || a.semester.localeCompare(b.semester));
+  const availablePeriods = periods.filter(p => (!args.year || p.year === args.year) && (!args.semester || p.semester === args.semester));
+  const requirePeriod = () => { throw Object.assign(new Error('Choose an explicit school year and semester, or an explicit annual/history scope'), { code: 'PERIOD_REQUIRED', availablePeriods: availablePeriods.slice(0, 100), truncated: availablePeriods.length > 100 }); };
+  let years = args.year ? [args.year] : [];
+  let semester = args.semester || null;
+  if (scope === 'history') years = [...new Set(args.years)];
+  else {
+    if (!years.length) {
+      years = [...new Set(availablePeriods.map(p => p.year))];
+      if (years.length > 1) requirePeriod();
+    }
+    if (scope === 'period' && !semester) {
+      const semesters = [...new Set(availablePeriods.map(p => p.semester))];
+      if (semesters.length > 1) requirePeriod();
+      semester = semesters[0] || null;
+    }
+  }
+  return { scope, years, semester };
+}
+
 const summarize = ({ subject, average, count, averageCoefficient }) => ({ subject, average, count, averageCoefficient });
 export function ownGrades(notes, user) {
   if (!user?.id || !user?.email) throw new Error('Authentication required');
@@ -54,7 +87,8 @@ export function executeGradeTool(name, rawArgs, ownNotes) {
   const definition = toolDefinitions[name];
   if (!definition) throw new Error('Unknown tool');
   const args = definition.input.parse(rawArgs);
-  const notes = ownNotes.filter(n => (!args.year || n.annee === args.year) && (!args.semester || n.semestre === args.semester) &&
+  const period = resolvePeriod(args, ownNotes);
+  const notes = ownNotes.filter(n => (!period.years.length || period.years.includes(n.annee)) && (!period.semester || n.semestre === period.semester) &&
     (!args.subject || n.matiere === args.subject) && (args.include_archived || !n.archived));
   if (notes.length > 10000) throw Object.assign(new Error('Narrow the school year or subject filter'), { code: 'FILTER_REQUIRED' });
   const subjects = () => analyzeSubjects(notes).map(summarize);
@@ -89,7 +123,7 @@ export function executeGradeTool(name, rawArgs, ownNotes) {
     }
     case 'get_insights': result = { insights: generateInsights(notes).map(i => ({ ...i, data: evidence.parse(Object.fromEntries(Object.entries(i.data).filter(([key]) => key !== 'subjects'))) })) }; break;
   }
-  return definition.output.parse(result);
+  return definition.output.parse({ ...result, period });
 }
 
 // Explicitly shared compensation export for consumers needing official half-step rounding.
