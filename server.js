@@ -5,7 +5,7 @@ import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 
 import { reconcileAccountSimulationPlans, patchAccountSimulationPlans, migrateAccountSimulationPlans } from "./src/lib/analytics/accountSimulationSettings.js";
-import { httpError, rateLimiter, readLimitedBody, sameOrigin, securityHeaders } from "./integration/security.js";
+import { httpError, proxyPolicy, rateLimiter, readLimitedBody, sameOrigin, securityHeaders } from "./integration/security.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 8080);
@@ -22,6 +22,7 @@ const secureCookie = process.env.NOTESGYM_SECURE_COOKIES === "true" || process.e
 const cookieFlags = `HttpOnly; SameSite=Lax; Path=/${secureCookie ? "; Secure" : ""}`;
 const loginAllowed = rateLimiter({ limit: 20, windowMs: 600000 });
 const apiAllowed = rateLimiter({ limit: 600 });
+const proxy = proxyPolicy();
 
 const jsonHeaders = {
   "content-type": "application/json; charset=utf-8",
@@ -252,11 +253,12 @@ function accountSimulationSettings(user, operation = "read", payload, requestId)
 async function handleApi(req, res, url) {
   try {
     if (url.pathname === "/api/health") {
-      return sendJson(res, 200, { ok: true });
+      const ok = !chatgpt || chatgpt.healthy();
+      return sendJson(res, ok ? 200 : 503, { ok });
     }
 
     if (url.pathname === "/api/auth/login" && req.method === "POST") {
-      if (!loginAllowed(req.socket.remoteAddress || "unknown")) return sendError(res, 429, "Too many login attempts");
+      if (!loginAllowed(proxy.clientIP(req))) return sendError(res, 429, "Too many login attempts");
       const { email, password } = await readBody(req);
       const users = await readJson(USERS_FILE, []);
       const user = users.find((item) => item.email === String(email || "").toLowerCase());
@@ -474,7 +476,7 @@ const server = createServer(async (req, res) => {
     const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
     if (chatgpt && await chatgpt.handle(req, res, url)) return;
     if (url.pathname.startsWith("/api/")) {
-      if (!apiAllowed(req.socket.remoteAddress || "unknown")) throw httpError(429, "Too many requests");
+      if (!apiAllowed(proxy.clientIP(req))) throw httpError(429, "Too many requests");
       if (!["GET", "HEAD"].includes(req.method)) {
         sameOrigin(req, process.env.NOTESGYM_PUBLIC_URL || `http://${req.headers.host}`);
         // Consume bounded bodies before entering the transaction queue.
@@ -498,6 +500,12 @@ const server = createServer(async (req, res) => {
 });
 server.requestTimeout = 15000;
 server.headersTimeout = 10000;
+const shutdown = () => {
+  const timeout = setTimeout(() => process.exit(1), 15000); timeout.unref();
+  server.close(() => { chatgpt?.close(); process.exit(0); });
+};
+process.once('SIGTERM', shutdown);
+process.once('SIGINT', shutdown);
 server.listen(PORT, () => {
   console.log(`NotesGym is running on http://localhost:${server.address().port}`);
 });

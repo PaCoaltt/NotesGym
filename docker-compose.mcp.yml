@@ -9,8 +9,9 @@ services:
     env_file:
       - .env.mcp.local
     environment:
-      NODE_ENV: development
+      NODE_ENV: ${NOTESGYM_RUNTIME_MODE:-development}
       NOTESGYM_DATA_DIR: /data
+      NOTESGYM_OAUTH_DB: /data/oauth/oauth.sqlite
     volumes:
       - notesgym-mcp-test-data:/data
     security_opt:
@@ -21,6 +22,7 @@ services:
     tmpfs:
       - /tmp:size=16m,noexec,nosuid
     restart: "no"
+    stop_grace_period: 20s
 
 volumes:
   notesgym-mcp-test-data:
