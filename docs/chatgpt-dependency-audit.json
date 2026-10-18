@@ -1,0 +1,312 @@
+{
+  "checked": "2026-10-18",
+  "vulnerabilities": {
+    "info": 0,
+    "low": 4,
+    "moderate": 21,
+    "high": 23,
+    "critical": 2
+  },
+  "findings": [
+    {
+      "package": "quill",
+      "severity": "moderate",
+      "advisory": "GHSA-4943-9vgg-gr5r",
+      "url": "https://github.com/advisories/GHSA-4943-9vgg-gr5r"
+    },
+    {
+      "package": "jspdf",
+      "severity": "high",
+      "advisory": "GHSA-w532-jxjh-hjhj",
+      "url": "https://github.com/advisories/GHSA-w532-jxjh-hjhj"
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-vhxf-7vqr-mrjg",
+      "url": "https://github.com/advisories/GHSA-vhxf-7vqr-mrjg"
+    },
+    {
+      "package": "jspdf",
+      "severity": "high",
+      "advisory": "GHSA-8mvj-3j78-4qmw",
+      "url": "https://github.com/advisories/GHSA-8mvj-3j78-4qmw"
+    },
+    {
+      "package": "jspdf",
+      "severity": "critical",
+      "advisory": "GHSA-f8cm-6447-x5h2",
+      "url": "https://github.com/advisories/GHSA-f8cm-6447-x5h2"
+    },
+    {
+      "package": "jspdf",
+      "severity": "high",
+      "advisory": "GHSA-pqxr-3g65-p328",
+      "url": "https://github.com/advisories/GHSA-pqxr-3g65-p328"
+    },
+    {
+      "package": "jspdf",
+      "severity": "high",
+      "advisory": "GHSA-95fx-jjr5-f39c",
+      "url": "https://github.com/advisories/GHSA-95fx-jjr5-f39c"
+    },
+    {
+      "package": "jspdf",
+      "severity": "moderate",
+      "advisory": "GHSA-vm32-vv63-w422",
+      "url": "https://github.com/advisories/GHSA-vm32-vv63-w422"
+    },
+    {
+      "package": "jspdf",
+      "severity": "moderate",
+      "advisory": "GHSA-cjw8-79x6-5cj4",
+      "url": "https://github.com/advisories/GHSA-cjw8-79x6-5cj4"
+    },
+    {
+      "package": "jspdf",
+      "severity": "high",
+      "advisory": "GHSA-9vjf-qc39-jprp",
+      "url": "https://github.com/advisories/GHSA-9vjf-qc39-jprp"
+    },
+    {
+      "package": "jspdf",
+      "severity": "high",
+      "advisory": "GHSA-67pg-wm7f-q7fj",
+      "url": "https://github.com/advisories/GHSA-67pg-wm7f-q7fj"
+    },
+    {
+      "package": "jspdf",
+      "severity": "high",
+      "advisory": "GHSA-p5xg-68wr-hm3m",
+      "url": "https://github.com/advisories/GHSA-p5xg-68wr-hm3m"
+    },
+    {
+      "package": "jspdf",
+      "severity": "high",
+      "advisory": "GHSA-7x6v-j9x4-qf24",
+      "url": "https://github.com/advisories/GHSA-7x6v-j9x4-qf24"
+    },
+    {
+      "package": "jspdf",
+      "severity": "critical",
+      "advisory": "GHSA-wfv2-pwc8-crg5",
+      "url": "https://github.com/advisories/GHSA-wfv2-pwc8-crg5"
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-h7mw-gpvr-xq4m",
+      "url": "https://github.com/advisories/GHSA-h7mw-gpvr-xq4m"
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-crv5-9vww-q3g8",
+      "url": "https://github.com/advisories/GHSA-crv5-9vww-q3g8"
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-hpcv-96wg-7vj8",
+      "url": "https://github.com/advisories/GHSA-hpcv-96wg-7vj8"
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-r47g-fvhr-h676",
+      "url": "https://github.com/advisories/GHSA-r47g-fvhr-h676"
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-rp9w-3fw7-7cwq",
+      "url": "https://github.com/advisories/GHSA-rp9w-3fw7-7cwq"
+    },
+    {
+      "package": "brace-expansion",
+      "severity": "high",
+      "advisory": "GHSA-3jxr-9vmj-r5cp",
+      "url": "https://github.com/advisories/GHSA-3jxr-9vmj-r5cp"
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-cmwh-pvxp-8882",
+      "url": "https://github.com/advisories/GHSA-cmwh-pvxp-8882"
+    },
+    {
+      "package": "dompurify",
+      "severity": "low",
+      "advisory": "GHSA-vxr8-fq34-vvx9",
+      "url": "https://github.com/advisories/GHSA-vxr8-fq34-vvx9"
+    },
+    {
+      "package": "dompurify",
+      "severity": "low",
+      "advisory": "GHSA-x4vx-rjvf-j5p4",
+      "url": "https://github.com/advisories/GHSA-x4vx-rjvf-j5p4"
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-76mc-f452-cxcm",
+      "url": "https://github.com/advisories/GHSA-76mc-f452-cxcm"
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-39q2-94rc-95cp",
+      "url": "https://github.com/advisories/GHSA-39q2-94rc-95cp"
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-cjmm-f4jc-qw8r",
+      "url": "https://github.com/advisories/GHSA-cjmm-f4jc-qw8r"
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-cj63-jhhr-wcxv",
+      "url": "https://github.com/advisories/GHSA-cj63-jhhr-wcxv"
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-h8r8-wccr-v5f2",
+      "url": "https://github.com/advisories/GHSA-h8r8-wccr-v5f2"
+    },
+    {
+      "package": "brace-expansion",
+      "severity": "high",
+      "advisory": "GHSA-mh99-v99m-4gvg",
+      "url": "https://github.com/advisories/GHSA-mh99-v99m-4gvg"
+    },
+    {
+      "package": "postcss",
+      "severity": "moderate",
+      "advisory": "GHSA-fxqj-rqcc-2cmp",
+      "url": "https://github.com/advisories/GHSA-fxqj-rqcc-2cmp"
+    },
+    {
+      "package": "brace-expansion",
+      "severity": "high",
+      "advisory": "GHSA-rgw5-rvv9-x895",
+      "url": "https://github.com/advisories/GHSA-rgw5-rvv9-x895"
+    },
+    {
+      "package": "js-yaml",
+      "severity": "high",
+      "advisory": "GHSA-5p4m-2wfm-xmqj",
+      "url": "https://github.com/advisories/GHSA-5p4m-2wfm-xmqj"
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-55q2-fjhq-7xh7",
+      "url": "https://github.com/advisories/GHSA-55q2-fjhq-7xh7"
+    },
+    {
+      "package": "react-router",
+      "severity": "high",
+      "advisory": "GHSA-qwww-vcr4-c8h2",
+      "url": "https://github.com/advisories/GHSA-qwww-vcr4-c8h2"
+    },
+    {
+      "package": "nanoid",
+      "severity": "high",
+      "advisory": "GHSA-28wg-ghj8-5hjv",
+      "url": "https://github.com/advisories/GHSA-28wg-ghj8-5hjv"
+    },
+    {
+      "package": "nanoid",
+      "severity": "high",
+      "advisory": "GHSA-2v37-7h3g-55p8",
+      "url": "https://github.com/advisories/GHSA-2v37-7h3g-55p8"
+    },
+    {
+      "package": "postcss",
+      "severity": "high",
+      "advisory": "GHSA-r28c-9q8g-f849",
+      "url": "https://github.com/advisories/GHSA-r28c-9q8g-f849"
+    },
+    {
+      "package": "browserslist",
+      "severity": "high",
+      "advisory": "GHSA-c83g-rgw3-j3cx",
+      "url": "https://github.com/advisories/GHSA-c83g-rgw3-j3cx"
+    },
+    {
+      "package": "browserslist",
+      "severity": "high",
+      "advisory": "GHSA-73wf-gq98-2v4g",
+      "url": "https://github.com/advisories/GHSA-73wf-gq98-2v4g"
+    },
+    {
+      "package": "baseline-browser-mapping",
+      "severity": "moderate",
+      "advisory": "GHSA-w5vr-8v7q-w6rv",
+      "url": "https://github.com/advisories/GHSA-w5vr-8v7q-w6rv"
+    },
+    {
+      "package": "js-yaml",
+      "severity": "high",
+      "advisory": "GHSA-2883-xcg3-v3hh",
+      "url": "https://github.com/advisories/GHSA-2883-xcg3-v3hh"
+    },
+    {
+      "package": "moment",
+      "severity": "moderate",
+      "advisory": "GHSA-4p3w-j4w9-5jqw",
+      "url": "https://github.com/advisories/GHSA-4p3w-j4w9-5jqw"
+    },
+    {
+      "package": "brace-expansion",
+      "severity": "moderate",
+      "advisory": "GHSA-q2hr-2g5m-vwhr",
+      "url": "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr"
+    },
+    {
+      "package": "brace-expansion",
+      "severity": "high",
+      "advisory": "GHSA-qhr7-859c-m2p7",
+      "url": "https://github.com/advisories/GHSA-qhr7-859c-m2p7"
+    },
+    {
+      "package": "brace-expansion",
+      "severity": "high",
+      "advisory": "GHSA-6j4f-fj2g-mc7p",
+      "url": "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p"
+    },
+    {
+      "package": "dompurify",
+      "severity": "low",
+      "advisory": "GHSA-c2j3-45gr-mqc4",
+      "url": "https://github.com/advisories/GHSA-c2j3-45gr-mqc4"
+    },
+    {
+      "package": "braces",
+      "severity": "high",
+      "advisory": "GHSA-vfj7-8cjw-p6xm",
+      "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm"
+    },
+    {
+      "package": "dompurify",
+      "severity": "low",
+      "advisory": "GHSA-6688-9rhm-gjv2",
+      "url": "https://github.com/advisories/GHSA-6688-9rhm-gjv2"
+    },
+    {
+      "package": "source-map-js",
+      "severity": "high",
+      "advisory": "GHSA-68fv-2mgg-jv7q",
+      "url": "https://github.com/advisories/GHSA-68fv-2mgg-jv7q"
+    },
+    {
+      "package": "postcss-selector-parser",
+      "severity": "moderate",
+      "advisory": "GHSA-rj75-hqrm-r3gf",
+      "url": "https://github.com/advisories/GHSA-rj75-hqrm-r3gf"
+    }
+  ]
+}
