@@ -1,4 +1,4 @@
-// Convert grades between different grading systems
+// Pure JavaScript grade conversions shared by the UI and PDF report.
 // Swiss system (1-6) is the base system stored in the database
 
 export const convertGrade = (grade, fromSystem, toSystem) => {
