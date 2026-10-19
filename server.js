@@ -5,7 +5,7 @@ import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 
 import { reconcileAccountSimulationPlans, patchAccountSimulationPlans, migrateAccountSimulationPlans } from "./src/lib/analytics/accountSimulationSettings.js";
-import { httpError, proxyPolicy, rateLimiter, readLimitedBody, sameOrigin, securityHeaders } from "./integration/security.js";
+import { httpError, proxyPolicy, rateLimiter, readLimitedBody, sameOrigin, securityHeaders, readPublicOrigin, webOrigin } from "./server/security.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 8080);
@@ -18,8 +18,8 @@ const SIMULATION_SETTINGS_FILE = path.join(DATA_DIR, "simulation-settings.json")
 const PUBLIC_DIR = path.join(__dirname, "dist");
 
 const sessions = new Map();
-const secureCookie = process.env.NOTESGYM_SECURE_COOKIES === "true" || process.env.NOTESGYM_PUBLIC_URL?.startsWith("https://");
-const cookieFlags = `HttpOnly; SameSite=Lax; Path=/${secureCookie ? "; Secure" : ""}`;
+const publicOrigin = readPublicOrigin();
+const cookieFlags = req => `HttpOnly; SameSite=Lax; Path=/${process.env.NOTESGYM_SECURE_COOKIES === "true" || webOrigin(req, publicOrigin, proxy).startsWith("https:") ? "; Secure" : ""}`;
 const loginAllowed = rateLimiter({ limit: 20, windowMs: 600000 });
 const apiAllowed = rateLimiter({ limit: 600 });
 const proxy = proxyPolicy();
@@ -253,8 +253,7 @@ function accountSimulationSettings(user, operation = "read", payload, requestId)
 async function handleApi(req, res, url) {
   try {
     if (url.pathname === "/api/health") {
-      const ok = !chatgpt || chatgpt.healthy();
-      return sendJson(res, ok ? 200 : 503, { ok });
+      return sendJson(res, 200, { ok: true });
     }
 
     if (url.pathname === "/api/auth/login" && req.method === "POST") {
@@ -268,7 +267,7 @@ async function handleApi(req, res, url) {
 
       const token = createSession(user.id);
       return sendJson(res, 200, { user: publicUser(user) }, {
-        "set-cookie": `notesgym_session=${encodeURIComponent(token)}; ${cookieFlags}; Max-Age=${SESSION_TTL_MS / 1000}`,
+        "set-cookie": `notesgym_session=${encodeURIComponent(token)}; ${cookieFlags(req)}; Max-Age=${SESSION_TTL_MS / 1000}`,
       });
     }
 
@@ -276,7 +275,7 @@ async function handleApi(req, res, url) {
       const token = getCookie(req, "notesgym_session");
       if (token) sessions.delete(token);
       return sendJson(res, 200, { ok: true }, {
-        "set-cookie": `notesgym_session=; ${cookieFlags}; Max-Age=0`,
+        "set-cookie": `notesgym_session=; ${cookieFlags(req)}; Max-Age=0`,
       });
     }
 
@@ -438,7 +437,9 @@ async function serveStatic(req, res, url) {
     return res.end(content);
   } catch {
     const fallback = await fs.readFile(path.join(PUBLIC_DIR, "index.html"));
-    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    // Only application pages receive the SPA fallback as a successful route.
+    const appPage = /^\/(?:Dashboard|Home|Insights|Statistics|Lab)\/?$/i.test(url.pathname);
+    res.writeHead(appPage ? 200 : 404, { "content-type": "text/html; charset=utf-8" });
     return res.end(fallback);
   }
 }
@@ -461,11 +462,6 @@ function contentType(file) {
 
 await ensureDataFiles();
 
-const chatgpt = process.env.NOTESGYM_MCP_ENABLED === "true"
-  ? await (await import("./integration/chatgpt.js")).createChatGptIntegration({
-    getCurrentUser, readUsers: () => readJson(USERS_FILE, []), readNotes: () => readJson(NOTES_FILE, []),
-  }) : null;
-
 // One writer process per data volume. Serialize whole API transactions so concurrent
 // note creates/edits cannot read the same snapshot and discard each other's updates.
 let apiQueue = Promise.resolve();
@@ -474,11 +470,10 @@ const server = createServer(async (req, res) => {
   securityHeaders(res);
   try {
     const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
-    if (chatgpt && await chatgpt.handle(req, res, url)) return;
     if (url.pathname.startsWith("/api/")) {
       if (!apiAllowed(proxy.clientIP(req))) throw httpError(429, "Too many requests");
       if (!["GET", "HEAD"].includes(req.method)) {
-        sameOrigin(req, process.env.NOTESGYM_PUBLIC_URL || `http://${req.headers.host}`);
+        sameOrigin(req, webOrigin(req, publicOrigin, proxy));
         // Consume bounded bodies before entering the transaction queue.
         req.notesgymBody = await readBody(req);
       }
@@ -487,11 +482,7 @@ const server = createServer(async (req, res) => {
       await apiQueue;
       return;
     }
-    if (url.pathname === "/chatgpt") {
-      res.writeHead(503, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
-      return res.end('<!doctype html><html lang="fr"><meta charset="utf-8"><title>NotesGym ChatGPT</title><h1>Connexions ChatGPT</h1><p>Cette intégration de test est désactivée sur cette instance.</p><a href="/">Retour à NotesGym</a></html>');
-    }
-    if (url.pathname === "/mcp" || url.pathname.startsWith("/oauth") || url.pathname.startsWith("/chatgpt") || url.pathname.startsWith("/.well-known/oauth-")) return sendError(res, 404, "Integration unavailable");
+    if (!["GET", "HEAD"].includes(req.method)) return sendError(res, 404, "Not found");
     return await serveStatic(req, res, url);
   } catch (error) {
     if (!res.headersSent) sendError(res, error.status || 500, error.status ? error.message : "Server error");
@@ -502,7 +493,7 @@ server.requestTimeout = 15000;
 server.headersTimeout = 10000;
 const shutdown = () => {
   const timeout = setTimeout(() => process.exit(1), 15000); timeout.unref();
-  server.close(() => { chatgpt?.close(); process.exit(0); });
+  server.close(() => process.exit(0));
 };
 process.once('SIGTERM', shutdown);
 process.once('SIGINT', shutdown);
