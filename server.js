@@ -5,6 +5,7 @@ import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 
 import { reconcileAccountSimulationPlans, patchAccountSimulationPlans, migrateAccountSimulationPlans } from "./src/lib/analytics/accountSimulationSettings.js";
+import { httpError, proxyPolicy, rateLimiter, readLimitedBody, sameOrigin, securityHeaders } from "./integration/security.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 8080);
@@ -17,6 +18,11 @@ const SIMULATION_SETTINGS_FILE = path.join(DATA_DIR, "simulation-settings.json")
 const PUBLIC_DIR = path.join(__dirname, "dist");
 
 const sessions = new Map();
+const secureCookie = process.env.NOTESGYM_SECURE_COOKIES === "true" || process.env.NOTESGYM_PUBLIC_URL?.startsWith("https://");
+const cookieFlags = `HttpOnly; SameSite=Lax; Path=/${secureCookie ? "; Secure" : ""}`;
+const loginAllowed = rateLimiter({ limit: 20, windowMs: 600000 });
+const apiAllowed = rateLimiter({ limit: 600 });
+const proxy = proxyPolicy();
 
 const jsonHeaders = {
   "content-type": "application/json; charset=utf-8",
@@ -34,7 +40,8 @@ async function ensureDataFiles() {
 async function ensureFile(file, fallback) {
   try {
     await fs.access(file);
-  } catch {
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
     await writeJson(file, fallback);
   }
 }
@@ -42,8 +49,9 @@ async function ensureFile(file, fallback) {
 async function readJson(file, fallback) {
   try {
     return JSON.parse(await fs.readFile(file, "utf8"));
-  } catch {
-    return fallback;
+  } catch (error) {
+    if (error.code === "ENOENT") return fallback;
+    throw error; // Corruption must never silently overwrite an existing store.
   }
 }
 
@@ -52,7 +60,11 @@ let writeQueue = Promise.resolve();
 async function writeJson(file, value) {
   const job = async () => {
     const tmp = `${file}.tmp`;
-    await fs.writeFile(tmp, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+    const handle = await fs.open(tmp, "w", 0o600);
+    try {
+      await handle.writeFile(`${JSON.stringify(value, null, 2)}\n`, "utf8");
+      await handle.sync();
+    } finally { await handle.close(); }
     await fs.rename(tmp, file);
   };
   writeQueue = writeQueue.then(job, job);
@@ -125,6 +137,8 @@ function publicUser(user) {
 }
 
 function createSession(userId) {
+  for (const [key, session] of sessions) if (session.expiresAt < Date.now()) sessions.delete(key);
+  if (sessions.size >= 10000) throw httpError(503, "Too many active sessions");
   const token = crypto.randomBytes(32).toString("hex");
   sessions.set(token, {
     userId,
@@ -160,10 +174,10 @@ async function getCurrentUser(req) {
 }
 
 async function readBody(req) {
-  const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
-  if (chunks.length === 0) return {};
-  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  if (req.notesgymBody !== undefined) return req.notesgymBody;
+  const raw = await readLimitedBody(req);
+  try { return raw ? JSON.parse(raw) : {}; }
+  catch { throw httpError(400, "Invalid JSON"); }
 }
 
 function sendJson(res, status, payload, headers = {}) {
@@ -176,15 +190,18 @@ function sendError(res, status, message) {
 }
 
 function validateNote(input) {
-  if (!input || typeof input !== "object") throw new Error("Invalid note");
-  if (!String(input.matiere || "").trim()) throw new Error("Subject is required");
-  if (!String(input.annee || "").trim()) throw new Error("School year is required");
-  if (!String(input.semestre || "").trim()) throw new Error("Semester is required");
+  if (!input || typeof input !== "object" || Array.isArray(input)) throw httpError(400, "Invalid note");
+  if (!String(input.matiere || "").trim()) throw httpError(400, "Subject is required");
+  if (!String(input.annee || "").trim()) throw httpError(400, "School year is required");
+  if (!String(input.semestre || "").trim()) throw httpError(400, "Semester is required");
 
   const note = Number(input.note);
   const coefficient = Number(input.coefficient ?? 1);
-  if (!Number.isFinite(note) || note < 0) throw new Error("Grade must be a positive number");
-  if (!Number.isFinite(coefficient) || coefficient <= 0) throw new Error("Coefficient must be positive");
+  if (!Number.isFinite(note) || note < 1 || note > 6) throw httpError(400, "Grade must be between 1 and 6 (Swiss scale)");
+  if (!Number.isFinite(coefficient) || coefficient <= 0 || coefficient > 100) throw httpError(400, "Coefficient must be between 0 (exclusive) and 100");
+  for (const field of ["matiere", "annee", "semestre", "nom_evaluation", "date", "commentaire"]) {
+    if (String(input[field] || "").length > (field === "commentaire" ? 2000 : 160)) throw httpError(400, "Field too long");
+  }
 
   return {
     matiere: String(input.matiere).trim(),
@@ -236,10 +253,12 @@ function accountSimulationSettings(user, operation = "read", payload, requestId)
 async function handleApi(req, res, url) {
   try {
     if (url.pathname === "/api/health") {
-      return sendJson(res, 200, { ok: true });
+      const ok = !chatgpt || chatgpt.healthy();
+      return sendJson(res, ok ? 200 : 503, { ok });
     }
 
     if (url.pathname === "/api/auth/login" && req.method === "POST") {
+      if (!loginAllowed(proxy.clientIP(req))) return sendError(res, 429, "Too many login attempts");
       const { email, password } = await readBody(req);
       const users = await readJson(USERS_FILE, []);
       const user = users.find((item) => item.email === String(email || "").toLowerCase());
@@ -249,7 +268,7 @@ async function handleApi(req, res, url) {
 
       const token = createSession(user.id);
       return sendJson(res, 200, { user: publicUser(user) }, {
-        "set-cookie": `notesgym_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_TTL_MS / 1000}`,
+        "set-cookie": `notesgym_session=${encodeURIComponent(token)}; ${cookieFlags}; Max-Age=${SESSION_TTL_MS / 1000}`,
       });
     }
 
@@ -257,7 +276,7 @@ async function handleApi(req, res, url) {
       const token = getCookie(req, "notesgym_session");
       if (token) sessions.delete(token);
       return sendJson(res, 200, { ok: true }, {
-        "set-cookie": "notesgym_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
+        "set-cookie": `notesgym_session=; ${cookieFlags}; Max-Age=0`,
       });
     }
 
@@ -397,7 +416,7 @@ async function handleApi(req, res, url) {
 
     return sendError(res, 404, "Not found");
   } catch (error) {
-    return sendError(res, error.status || 500, error.message || "Server error");
+    return sendError(res, error.status || 500, error.status ? error.message : "Server error");
   }
 }
 
@@ -442,13 +461,51 @@ function contentType(file) {
 
 await ensureDataFiles();
 
+const chatgpt = process.env.NOTESGYM_MCP_ENABLED === "true"
+  ? await (await import("./integration/chatgpt.js")).createChatGptIntegration({
+    getCurrentUser, readUsers: () => readJson(USERS_FILE, []), readNotes: () => readJson(NOTES_FILE, []),
+  }) : null;
+
+// One writer process per data volume. Serialize whole API transactions so concurrent
+// note creates/edits cannot read the same snapshot and discard each other's updates.
+let apiQueue = Promise.resolve();
+
 const server = createServer(async (req, res) => {
-  const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
-  if (url.pathname.startsWith("/api/")) {
-    return handleApi(req, res, url);
+  securityHeaders(res);
+  try {
+    const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+    if (chatgpt && await chatgpt.handle(req, res, url)) return;
+    if (url.pathname.startsWith("/api/")) {
+      if (!apiAllowed(proxy.clientIP(req))) throw httpError(429, "Too many requests");
+      if (!["GET", "HEAD"].includes(req.method)) {
+        sameOrigin(req, process.env.NOTESGYM_PUBLIC_URL || `http://${req.headers.host}`);
+        // Consume bounded bodies before entering the transaction queue.
+        req.notesgymBody = await readBody(req);
+      }
+      const job = () => handleApi(req, res, url);
+      apiQueue = apiQueue.then(job, job);
+      await apiQueue;
+      return;
+    }
+    if (url.pathname === "/chatgpt") {
+      res.writeHead(503, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+      return res.end('<!doctype html><html lang="fr"><meta charset="utf-8"><title>NotesGym ChatGPT</title><h1>Connexions ChatGPT</h1><p>Cette intégration de test est désactivée sur cette instance.</p><a href="/">Retour à NotesGym</a></html>');
+    }
+    if (url.pathname === "/mcp" || url.pathname.startsWith("/oauth") || url.pathname.startsWith("/chatgpt") || url.pathname.startsWith("/.well-known/oauth-")) return sendError(res, 404, "Integration unavailable");
+    return await serveStatic(req, res, url);
+  } catch (error) {
+    if (!res.headersSent) sendError(res, error.status || 500, error.status ? error.message : "Server error");
+    else res.end();
   }
-  return serveStatic(req, res, url);
 });
+server.requestTimeout = 15000;
+server.headersTimeout = 10000;
+const shutdown = () => {
+  const timeout = setTimeout(() => process.exit(1), 15000); timeout.unref();
+  server.close(() => { chatgpt?.close(); process.exit(0); });
+};
+process.once('SIGTERM', shutdown);
+process.once('SIGINT', shutdown);
 server.listen(PORT, () => {
   console.log(`NotesGym is running on http://localhost:${server.address().port}`);
 });

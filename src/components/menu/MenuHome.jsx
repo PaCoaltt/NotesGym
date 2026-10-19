@@ -13,6 +13,7 @@ export default function MenuHome({ t, statisticsTitle, labTitle, onNavigate, onI
     <div className="space-y-2 border-t border-[#c8ced6] pt-4">
       <MenuButton icon={Settings} onClick={() => onNavigate("preferences")} chevron>{t.preferences}</MenuButton>
       <MenuButton icon={Database} onClick={() => onNavigate("data")} chevron>{t.data}</MenuButton>
+      <a href="/chatgpt" className="block px-3 py-3 font-semibold text-[#5a6a7a]">NotesGym × ChatGPT</a>
       <MenuButton icon={CircleHelp} onClick={() => onNavigate("help")} chevron>{t.help}</MenuButton>
     </div>
   </div>;

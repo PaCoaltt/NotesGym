@@ -4,6 +4,12 @@ import pluginReact from "eslint-plugin-react";
 import pluginReactHooks from "eslint-plugin-react-hooks";
 
 export default [
+  { ignores: ["node_modules/**", "dist/**", ".notesgym-test-data/**"] },
+  {
+    files: ["server.js", "integration/**/*.js", "src/lib/reportPdf.js", "scripts/chatgpt-*.mjs", "test/chatgpt-*.js"],
+    languageOptions: { globals: globals.node },
+    rules: pluginJs.configs.recommended.rules,
+  },
   {
     files: [
       "src/components/**/*.{js,mjs,cjs,jsx}",

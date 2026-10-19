@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "notesgym",
+  "version": "0.1.1",
+  "description": "Read your NotesGym grades, explore computed insights and simulate future grades without changing your records.",
+  "repository": "https://github.com/PaCoaltt/NotesGym",
+  "keywords": ["education", "grades", "read-only"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "NotesGym",
+        "shortDescription": "Vos notes et analyses scolaires dans ChatGPT.",
+        "longDescription": "Consultez vos notes NotesGym, leurs tendances et les insights calculés. Simulez des notes futures sans modifier vos données.",
+        "capabilities": ["Read"],
+        "defaultPrompt": [
+          "Avec NotesGym, résume mes résultats pour l’année scolaire que je précise.",
+          "Analyse la tendance de mes notes de mathématiques dans NotesGym.",
+          "Simule une note de 5,5 coefficient 2 sans l’enregistrer.",
+          "Use NotesGym to explain the evidence behind my subject trends."
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "checked": "2026-10-18T16:09:57.200Z",
+  "productionOnly": true,
+  "vulnerabilities": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0
+  },
+  "findings": []
+}

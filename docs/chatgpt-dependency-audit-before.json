@@ -1,0 +1,1062 @@
+{
+  "checked": "2026-10-18T15:56:26.934Z",
+  "vulnerabilities": {
+    "info": 0,
+    "low": 4,
+    "moderate": 21,
+    "high": 23,
+    "critical": 2
+  },
+  "findings": [
+    {
+      "package": "quill",
+      "severity": "moderate",
+      "advisory": "GHSA-4943-9vgg-gr5r",
+      "title": "Cross-site Scripting in quill",
+      "url": "https://github.com/advisories/GHSA-4943-9vgg-gr5r",
+      "affected": "<=1.3.7",
+      "patched": "<0.0.0",
+      "recommendation": "None",
+      "occurrences": [
+        {
+          "version": "1.3.7",
+          "paths": [
+            ".>react-quill>quill"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "jspdf",
+      "severity": "high",
+      "advisory": "GHSA-w532-jxjh-hjhj",
+      "title": "jsPDF Bypass Regular Expression Denial of Service (ReDoS)",
+      "url": "https://github.com/advisories/GHSA-w532-jxjh-hjhj",
+      "affected": "<3.0.1",
+      "patched": ">=3.0.1",
+      "recommendation": "Upgrade to version 3.0.1 or later",
+      "occurrences": [
+        {
+          "version": "2.5.2",
+          "paths": [
+            ".>jspdf"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-vhxf-7vqr-mrjg",
+      "title": "DOMPurify allows Cross-site Scripting (XSS)",
+      "url": "https://github.com/advisories/GHSA-vhxf-7vqr-mrjg",
+      "affected": "<3.2.4",
+      "patched": ">=3.2.4",
+      "recommendation": "Upgrade to version 3.2.4 or later",
+      "occurrences": [
+        {
+          "version": "2.5.9",
+          "paths": [
+            ".>jspdf>dompurify"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "jspdf",
+      "severity": "high",
+      "advisory": "GHSA-8mvj-3j78-4qmw",
+      "title": "jsPDF Denial of Service (DoS)",
+      "url": "https://github.com/advisories/GHSA-8mvj-3j78-4qmw",
+      "affected": "<=3.0.1",
+      "patched": ">=3.0.2",
+      "recommendation": "Upgrade to version 3.0.2 or later",
+      "occurrences": [
+        {
+          "version": "2.5.2",
+          "paths": [
+            ".>jspdf"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "jspdf",
+      "severity": "critical",
+      "advisory": "GHSA-f8cm-6447-x5h2",
+      "title": "jsPDF has Local File Inclusion/Path Traversal vulnerability",
+      "url": "https://github.com/advisories/GHSA-f8cm-6447-x5h2",
+      "affected": "<=3.0.4",
+      "patched": ">=4.0.0",
+      "recommendation": "Upgrade to version 4.0.0 or later",
+      "occurrences": [
+        {
+          "version": "2.5.2",
+          "paths": [
+            ".>jspdf"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "jspdf",
+      "severity": "high",
+      "advisory": "GHSA-pqxr-3g65-p328",
+      "title": "jsPDF has PDF Injection in AcroFormChoiceField that allows Arbitrary JavaScript Execution",
+      "url": "https://github.com/advisories/GHSA-pqxr-3g65-p328",
+      "affected": "<=4.0.0",
+      "patched": ">=4.1.0",
+      "recommendation": "Upgrade to version 4.1.0 or later",
+      "occurrences": [
+        {
+          "version": "2.5.2",
+          "paths": [
+            ".>jspdf"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "jspdf",
+      "severity": "high",
+      "advisory": "GHSA-95fx-jjr5-f39c",
+      "title": "jsPDF Vulnerable to Denial of Service (DoS) via Unvalidated BMP Dimensions in BMPDecoder",
+      "url": "https://github.com/advisories/GHSA-95fx-jjr5-f39c",
+      "affected": "<=4.0.0",
+      "patched": ">=4.1.0",
+      "recommendation": "Upgrade to version 4.1.0 or later",
+      "occurrences": [
+        {
+          "version": "2.5.2",
+          "paths": [
+            ".>jspdf"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "jspdf",
+      "severity": "moderate",
+      "advisory": "GHSA-vm32-vv63-w422",
+      "title": "jsPDF Vulnerable to Stored XMP Metadata Injection (Spoofing & Integrity Violation)",
+      "url": "https://github.com/advisories/GHSA-vm32-vv63-w422",
+      "affected": "<=4.0.0",
+      "patched": ">=4.1.0",
+      "recommendation": "Upgrade to version 4.1.0 or later",
+      "occurrences": [
+        {
+          "version": "2.5.2",
+          "paths": [
+            ".>jspdf"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "jspdf",
+      "severity": "moderate",
+      "advisory": "GHSA-cjw8-79x6-5cj4",
+      "title": "jsPDF has Shared State Race Condition in addJS Plugin",
+      "url": "https://github.com/advisories/GHSA-cjw8-79x6-5cj4",
+      "affected": "<=4.0.0",
+      "patched": ">=4.1.0",
+      "recommendation": "Upgrade to version 4.1.0 or later",
+      "occurrences": [
+        {
+          "version": "2.5.2",
+          "paths": [
+            ".>jspdf"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "jspdf",
+      "severity": "high",
+      "advisory": "GHSA-9vjf-qc39-jprp",
+      "title": "jsPDF has a PDF Object Injection via Unsanitized Input in addJS Method",
+      "url": "https://github.com/advisories/GHSA-9vjf-qc39-jprp",
+      "affected": "<4.2.0",
+      "patched": ">=4.2.0",
+      "recommendation": "Upgrade to version 4.2.0 or later",
+      "occurrences": [
+        {
+          "version": "2.5.2",
+          "paths": [
+            ".>jspdf"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "jspdf",
+      "severity": "high",
+      "advisory": "GHSA-67pg-wm7f-q7fj",
+      "title": "jsPDF Affected by Client-Side/Server-Side Denial of Service via Malicious GIF Dimensions",
+      "url": "https://github.com/advisories/GHSA-67pg-wm7f-q7fj",
+      "affected": "<4.2.0",
+      "patched": ">=4.2.0",
+      "recommendation": "Upgrade to version 4.2.0 or later",
+      "occurrences": [
+        {
+          "version": "2.5.2",
+          "paths": [
+            ".>jspdf"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "jspdf",
+      "severity": "high",
+      "advisory": "GHSA-p5xg-68wr-hm3m",
+      "title": "jsPDF has a PDF Injection in AcroForm module allows Arbitrary JavaScript Execution (RadioButton.createOption and \"AS\" property)",
+      "url": "https://github.com/advisories/GHSA-p5xg-68wr-hm3m",
+      "affected": "<4.2.0",
+      "patched": ">=4.2.0",
+      "recommendation": "Upgrade to version 4.2.0 or later",
+      "occurrences": [
+        {
+          "version": "2.5.2",
+          "paths": [
+            ".>jspdf"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "jspdf",
+      "severity": "high",
+      "advisory": "GHSA-7x6v-j9x4-qf24",
+      "title": "jsPDF has a PDF Object Injection via FreeText color",
+      "url": "https://github.com/advisories/GHSA-7x6v-j9x4-qf24",
+      "affected": "<=4.2.0",
+      "patched": ">=4.2.1",
+      "recommendation": "Upgrade to version 4.2.1 or later",
+      "occurrences": [
+        {
+          "version": "2.5.2",
+          "paths": [
+            ".>jspdf"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "jspdf",
+      "severity": "critical",
+      "advisory": "GHSA-wfv2-pwc8-crg5",
+      "title": "jsPDF has HTML Injection in New Window paths",
+      "url": "https://github.com/advisories/GHSA-wfv2-pwc8-crg5",
+      "affected": "<=4.2.0",
+      "patched": ">=4.2.1",
+      "recommendation": "Upgrade to version 4.2.1 or later",
+      "occurrences": [
+        {
+          "version": "2.5.2",
+          "paths": [
+            ".>jspdf"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-h7mw-gpvr-xq4m",
+      "title": "DOMPurify: FORBID_TAGS bypassed by function-based ADD_TAGS predicate (asymmetry with FORBID_ATTR fix)",
+      "url": "https://github.com/advisories/GHSA-h7mw-gpvr-xq4m",
+      "affected": "<3.4.0",
+      "patched": ">=3.4.0",
+      "recommendation": "Upgrade to version 3.4.0 or later",
+      "occurrences": [
+        {
+          "version": "2.5.9",
+          "paths": [
+            ".>jspdf>dompurify"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-crv5-9vww-q3g8",
+      "title": "DOMPurify has a SAFE_FOR_TEMPLATES bypass in RETURN_DOM mode",
+      "url": "https://github.com/advisories/GHSA-crv5-9vww-q3g8",
+      "affected": ">=1.0.10 <3.4.0",
+      "patched": ">=3.4.0",
+      "recommendation": "Upgrade to version 3.4.0 or later",
+      "occurrences": [
+        {
+          "version": "2.5.9",
+          "paths": [
+            ".>jspdf>dompurify"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-hpcv-96wg-7vj8",
+      "title": "DOMPurify: Cross-realm IN_PLACE sanitization leaves executable markup intact via realm-bound `instanceof` checks",
+      "url": "https://github.com/advisories/GHSA-hpcv-96wg-7vj8",
+      "affected": "<=3.4.5",
+      "patched": ">=3.4.6",
+      "recommendation": "Upgrade to version 3.4.6 or later",
+      "occurrences": [
+        {
+          "version": "2.5.9",
+          "paths": [
+            ".>jspdf>dompurify"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-r47g-fvhr-h676",
+      "title": "DOMPurify: IN_PLACE mode preserves attributes of a clobbered root element, allowing XSS via attacker-controlled root DOM",
+      "url": "https://github.com/advisories/GHSA-r47g-fvhr-h676",
+      "affected": "<=3.4.5",
+      "patched": ">=3.4.6",
+      "recommendation": "Upgrade to version 3.4.6 or later",
+      "occurrences": [
+        {
+          "version": "2.5.9",
+          "paths": [
+            ".>jspdf>dompurify"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-rp9w-3fw7-7cwq",
+      "title": "DOMPurify IN_PLACE Sanitization Bypass via Attached Shadow Root Inside <template>.content",
+      "url": "https://github.com/advisories/GHSA-rp9w-3fw7-7cwq",
+      "affected": "<=3.4.6",
+      "patched": ">=3.4.7",
+      "recommendation": "Upgrade to version 3.4.7 or later",
+      "occurrences": [
+        {
+          "version": "2.5.9",
+          "paths": [
+            ".>jspdf>dompurify"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "brace-expansion",
+      "severity": "high",
+      "advisory": "GHSA-3jxr-9vmj-r5cp",
+      "title": "brace-expansion: DoS via exponential-time expansion of consecutive non-expanding {} groups",
+      "url": "https://github.com/advisories/GHSA-3jxr-9vmj-r5cp",
+      "affected": "<1.1.16",
+      "patched": ">=1.1.16",
+      "recommendation": "Upgrade to version 1.1.16 or later",
+      "occurrences": [
+        {
+          "version": "1.1.15",
+          "paths": [
+            ".>eslint>minimatch>brace-expansion"
+          ],
+          "environments": [
+            "development"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-cmwh-pvxp-8882",
+      "title": "DOMPurify: Permanent `ALLOWED_ATTR` pollution via `setConfig()` bypassing the hook clone-guard (incomplete fix of the 3.4.7 hook-pollution patch)",
+      "url": "https://github.com/advisories/GHSA-cmwh-pvxp-8882",
+      "affected": "<=3.4.10",
+      "patched": ">=3.4.11",
+      "recommendation": "Upgrade to version 3.4.11 or later",
+      "occurrences": [
+        {
+          "version": "2.5.9",
+          "paths": [
+            ".>jspdf>dompurify"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "dompurify",
+      "severity": "low",
+      "advisory": "GHSA-vxr8-fq34-vvx9",
+      "title": "DOMPurify: Trusted Types policy survives `clearConfig()` and can poison later `RETURN_TRUSTED_TYPE` output",
+      "url": "https://github.com/advisories/GHSA-vxr8-fq34-vvx9",
+      "affected": "<3.4.9",
+      "patched": ">=3.4.9",
+      "recommendation": "Upgrade to version 3.4.9 or later",
+      "occurrences": [
+        {
+          "version": "2.5.9",
+          "paths": [
+            ".>jspdf>dompurify"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "dompurify",
+      "severity": "low",
+      "advisory": "GHSA-x4vx-rjvf-j5p4",
+      "title": "DOMPurify: `IN_PLACE` mode trusts attacker-controlled `nodeName` on live non-form nodes, allowing script retention and XSS via attacker-supplied DOM objects",
+      "url": "https://github.com/advisories/GHSA-x4vx-rjvf-j5p4",
+      "affected": "<=3.4.6",
+      "patched": "<0.0.0",
+      "recommendation": "None",
+      "occurrences": [
+        {
+          "version": "2.5.9",
+          "paths": [
+            ".>jspdf>dompurify"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-76mc-f452-cxcm",
+      "title": "DOMPurify: Hook mutation of `data.allowedTags` / `data.allowedAttributes` permanently pollutes `DEFAULT_ALLOWED_TAGS` / `DEFAULT_ALLOWED_ATTR`",
+      "url": "https://github.com/advisories/GHSA-76mc-f452-cxcm",
+      "affected": "<3.4.7",
+      "patched": ">=3.4.7",
+      "recommendation": "Upgrade to version 3.4.7 or later",
+      "occurrences": [
+        {
+          "version": "2.5.9",
+          "paths": [
+            ".>jspdf>dompurify"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-39q2-94rc-95cp",
+      "title": "DOMPurify's ADD_TAGS function form bypasses FORBID_TAGS due to short-circuit evaluation",
+      "url": "https://github.com/advisories/GHSA-39q2-94rc-95cp",
+      "affected": "<=3.3.3",
+      "patched": ">=3.4.0",
+      "recommendation": "Upgrade to version 3.4.0 or later",
+      "occurrences": [
+        {
+          "version": "2.5.9",
+          "paths": [
+            ".>jspdf>dompurify"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-cjmm-f4jc-qw8r",
+      "title": "DOMPurify ADD_ATTR predicate skips URI validation",
+      "url": "https://github.com/advisories/GHSA-cjmm-f4jc-qw8r",
+      "affected": "<=3.3.1",
+      "patched": ">=3.3.2",
+      "recommendation": "Upgrade to version 3.3.2 or later",
+      "occurrences": [
+        {
+          "version": "2.5.9",
+          "paths": [
+            ".>jspdf>dompurify"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-cj63-jhhr-wcxv",
+      "title": "DOMPurify USE_PROFILES prototype pollution allows event handlers",
+      "url": "https://github.com/advisories/GHSA-cj63-jhhr-wcxv",
+      "affected": "<=3.3.1",
+      "patched": ">=3.3.2",
+      "recommendation": "Upgrade to version 3.3.2 or later",
+      "occurrences": [
+        {
+          "version": "2.5.9",
+          "paths": [
+            ".>jspdf>dompurify"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-h8r8-wccr-v5f2",
+      "title": "DOMPurify is vulnerable to mutation-XSS via Re-Contextualization ",
+      "url": "https://github.com/advisories/GHSA-h8r8-wccr-v5f2",
+      "affected": "<3.3.2",
+      "patched": ">=3.3.2",
+      "recommendation": "Upgrade to version 3.3.2 or later",
+      "occurrences": [
+        {
+          "version": "2.5.9",
+          "paths": [
+            ".>jspdf>dompurify"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "brace-expansion",
+      "severity": "high",
+      "advisory": "GHSA-mh99-v99m-4gvg",
+      "title": "brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash",
+      "url": "https://github.com/advisories/GHSA-mh99-v99m-4gvg",
+      "affected": "<1.1.17",
+      "patched": ">=1.1.17",
+      "recommendation": "Upgrade to version 1.1.17 or later",
+      "occurrences": [
+        {
+          "version": "1.1.15",
+          "paths": [
+            ".>eslint>minimatch>brace-expansion"
+          ],
+          "environments": [
+            "development"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "postcss",
+      "severity": "moderate",
+      "advisory": "GHSA-fxqj-rqcc-2cmp",
+      "title": "PostCSS: incomplete fix of GHSA-6g55-p6wh-862q — attacker-controlled sourceMappingURL reads arbitrary .map files when `from` is unset",
+      "url": "https://github.com/advisories/GHSA-fxqj-rqcc-2cmp",
+      "affected": "<=8.5.22",
+      "patched": ">=8.5.23",
+      "recommendation": "Upgrade to version 8.5.23 or later",
+      "occurrences": [
+        {
+          "version": "8.5.16",
+          "paths": [
+            ".>postcss"
+          ],
+          "environments": [
+            "development"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "brace-expansion",
+      "severity": "high",
+      "advisory": "GHSA-rgw5-rvv9-x895",
+      "title": "brace-expansion: DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation",
+      "url": "https://github.com/advisories/GHSA-rgw5-rvv9-x895",
+      "affected": "<1.1.18",
+      "patched": ">=1.1.18",
+      "recommendation": "Upgrade to version 1.1.18 or later",
+      "occurrences": [
+        {
+          "version": "1.1.15",
+          "paths": [
+            ".>eslint>minimatch>brace-expansion"
+          ],
+          "environments": [
+            "development"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "js-yaml",
+      "severity": "high",
+      "advisory": "GHSA-5p4m-2wfm-xmqj",
+      "title": "JS-YAML: Quadratic CPU consumption in !!omap resolution (3.x and 4.x) — CVE-2026-59870 fix not backported",
+      "url": "https://github.com/advisories/GHSA-5p4m-2wfm-xmqj",
+      "affected": ">=4.0.0 <4.3.1",
+      "patched": ">=4.3.1",
+      "recommendation": "Upgrade to version 4.3.1 or later",
+      "occurrences": [
+        {
+          "version": "4.3.0",
+          "paths": [
+            ".>eslint>@eslint/eslintrc>js-yaml"
+          ],
+          "environments": [
+            "development"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "dompurify",
+      "severity": "moderate",
+      "advisory": "GHSA-55q2-fjhq-7xh7",
+      "title": "DOMPurify: IN_PLACE hook removal leaves a detached subtree executable, causing XSS",
+      "url": "https://github.com/advisories/GHSA-55q2-fjhq-7xh7",
+      "affected": "<=3.4.12",
+      "patched": ">=3.4.13",
+      "recommendation": "Upgrade to version 3.4.13 or later",
+      "occurrences": [
+        {
+          "version": "2.5.9",
+          "paths": [
+            ".>jspdf>dompurify"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "react-router",
+      "severity": "high",
+      "advisory": "GHSA-qwww-vcr4-c8h2",
+      "title": "React Router: RSC Mode CSRF Bypass Allows Action Execution Before 400 Response",
+      "url": "https://github.com/advisories/GHSA-qwww-vcr4-c8h2",
+      "affected": ">=7.12.0 <7.18.2",
+      "patched": ">=7.18.2",
+      "recommendation": "Upgrade to version 7.18.2 or later",
+      "occurrences": [
+        {
+          "version": "7.18.1",
+          "paths": [
+            ".>react-router-dom>react-router"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "nanoid",
+      "severity": "high",
+      "advisory": "GHSA-28wg-ghj8-5hjv",
+      "title": "nanoid: non-secure generators can loop indefinitely with negative size",
+      "url": "https://github.com/advisories/GHSA-28wg-ghj8-5hjv",
+      "affected": "<3.3.16",
+      "patched": ">=3.3.16",
+      "recommendation": "Upgrade to version 3.3.16 or later",
+      "occurrences": [
+        {
+          "version": "3.3.15",
+          "paths": [
+            ".>postcss>nanoid"
+          ],
+          "environments": [
+            "development"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "nanoid",
+      "severity": "high",
+      "advisory": "GHSA-2v37-7h3g-55p8",
+      "title": "nanoid: custom generators can loop indefinitely when size is zero",
+      "url": "https://github.com/advisories/GHSA-2v37-7h3g-55p8",
+      "affected": "<3.3.18",
+      "patched": ">=3.3.18",
+      "recommendation": "Upgrade to version 3.3.18 or later",
+      "occurrences": [
+        {
+          "version": "3.3.15",
+          "paths": [
+            ".>postcss>nanoid"
+          ],
+          "environments": [
+            "development"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "postcss",
+      "severity": "high",
+      "advisory": "GHSA-r28c-9q8g-f849",
+      "title": "PostCSS: Path Traversal in Previous Source Map Auto-Loading (sourceMappingURL) leads to Arbitrary .map File Disclosure",
+      "url": "https://github.com/advisories/GHSA-r28c-9q8g-f849",
+      "affected": "<=8.5.17",
+      "patched": ">=8.5.18",
+      "recommendation": "Upgrade to version 8.5.18 or later",
+      "occurrences": [
+        {
+          "version": "8.5.16",
+          "paths": [
+            ".>postcss"
+          ],
+          "environments": [
+            "development"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "browserslist",
+      "severity": "high",
+      "advisory": "GHSA-c83g-rgw3-j3cx",
+      "title": "Browserslist: Unbounded memory growth (no cache eviction) via distinct query results, leading to eventual OOM",
+      "url": "https://github.com/advisories/GHSA-c83g-rgw3-j3cx",
+      "affected": "<=4.28.6",
+      "patched": ">=4.28.7",
+      "recommendation": "Upgrade to version 4.28.7 or later",
+      "occurrences": [
+        {
+          "version": "4.28.5",
+          "paths": [
+            ".>@vitejs/plugin-react>@babel/core>@babel/helper-compilation-targets>browserslist"
+          ],
+          "environments": [
+            "development"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "browserslist",
+      "severity": "high",
+      "advisory": "GHSA-73wf-gq98-2v4g",
+      "title": "Browserslist: Uncaught crash / prototype write via untrusted browserslist-stats.json custom stats (normalizeStats)",
+      "url": "https://github.com/advisories/GHSA-73wf-gq98-2v4g",
+      "affected": "<=4.28.6",
+      "patched": ">=4.28.7",
+      "recommendation": "Upgrade to version 4.28.7 or later",
+      "occurrences": [
+        {
+          "version": "4.28.5",
+          "paths": [
+            ".>@vitejs/plugin-react>@babel/core>@babel/helper-compilation-targets>browserslist"
+          ],
+          "environments": [
+            "development"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "baseline-browser-mapping",
+      "severity": "moderate",
+      "advisory": "GHSA-w5vr-8v7q-w6rv",
+      "title": "baseline-browser-mapping process termination on invalid input causes denial of service",
+      "url": "https://github.com/advisories/GHSA-w5vr-8v7q-w6rv",
+      "affected": ">=2.0.0 <2.11.0",
+      "patched": ">=2.11.0",
+      "recommendation": "Upgrade to version 2.11.0 or later",
+      "occurrences": [
+        {
+          "version": "2.10.42",
+          "paths": [
+            ".>@vitejs/plugin-react>@babel/core>@babel/helper-compilation-targets>browserslist>baseline-browser-mapping"
+          ],
+          "environments": [
+            "development"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "js-yaml",
+      "severity": "high",
+      "advisory": "GHSA-2883-xcg3-v3hh",
+      "title": "js-yaml: maxTotalMergeKeys does not limit CPU use for empty merge sources",
+      "url": "https://github.com/advisories/GHSA-2883-xcg3-v3hh",
+      "affected": ">=4.0.0 <4.3.2",
+      "patched": ">=4.3.2",
+      "recommendation": "Upgrade to version 4.3.2 or later",
+      "occurrences": [
+        {
+          "version": "4.3.0",
+          "paths": [
+            ".>eslint>@eslint/eslintrc>js-yaml"
+          ],
+          "environments": [
+            "development"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "moment",
+      "severity": "moderate",
+      "advisory": "GHSA-4p3w-j4w9-5jqw",
+      "title": "moment vulnerable to Path Traversal via crafted non-string locale name",
+      "url": "https://github.com/advisories/GHSA-4p3w-j4w9-5jqw",
+      "affected": ">=2.29.2 <2.31.0",
+      "patched": ">=2.31.0",
+      "recommendation": "Upgrade to version 2.31.0 or later",
+      "occurrences": [
+        {
+          "version": "2.30.1",
+          "paths": [
+            ".>moment"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "brace-expansion",
+      "severity": "moderate",
+      "advisory": "GHSA-q2hr-2g5m-vwhr",
+      "title": "brace-expansion: Quadratic-time expansion of the `{a},b}` rewrite causes CPU denial of service",
+      "url": "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr",
+      "affected": "<1.1.21",
+      "patched": ">=1.1.21",
+      "recommendation": "Upgrade to version 1.1.21 or later",
+      "occurrences": [
+        {
+          "version": "1.1.15",
+          "paths": [
+            ".>eslint>minimatch>brace-expansion"
+          ],
+          "environments": [
+            "development"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "brace-expansion",
+      "severity": "high",
+      "advisory": "GHSA-qhr7-859c-m2p7",
+      "title": "brace-expansion: DoS via uncontrolled recursion on nested brace groups causing stack exhaustion",
+      "url": "https://github.com/advisories/GHSA-qhr7-859c-m2p7",
+      "affected": "<1.1.20",
+      "patched": ">=1.1.20",
+      "recommendation": "Upgrade to version 1.1.20 or later",
+      "occurrences": [
+        {
+          "version": "1.1.15",
+          "paths": [
+            ".>eslint>minimatch>brace-expansion"
+          ],
+          "environments": [
+            "development"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "brace-expansion",
+      "severity": "high",
+      "advisory": "GHSA-6j4f-fj2g-mc7p",
+      "title": "brace-expansion: DoS via uncontrolled recursion in parseCommaParts causing stack exhaustion",
+      "url": "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p",
+      "affected": "<1.1.19",
+      "patched": ">=1.1.19",
+      "recommendation": "Upgrade to version 1.1.19 or later",
+      "occurrences": [
+        {
+          "version": "1.1.15",
+          "paths": [
+            ".>eslint>minimatch>brace-expansion"
+          ],
+          "environments": [
+            "development"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "dompurify",
+      "severity": "low",
+      "advisory": "GHSA-c2j3-45gr-mqc4",
+      "title": "DOMPurify: `CUSTOM_ELEMENT_HANDLING` bypasses `afterSanitizeElements` for allowed custom elements.",
+      "url": "https://github.com/advisories/GHSA-c2j3-45gr-mqc4",
+      "affected": "<=3.4.11",
+      "patched": ">=3.4.12",
+      "recommendation": "Upgrade to version 3.4.12 or later",
+      "occurrences": [
+        {
+          "version": "2.5.9",
+          "paths": [
+            ".>jspdf>dompurify"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "braces",
+      "severity": "high",
+      "advisory": "GHSA-vfj7-8cjw-p6xm",
+      "title": "braces vulnerable to stack-exhaustion denial of service through deeply nested patterns",
+      "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+      "affected": "<=3.0.3",
+      "patched": "<0.0.0",
+      "recommendation": "None",
+      "occurrences": [
+        {
+          "version": "3.0.3",
+          "paths": [
+            ".>tailwindcss>chokidar>braces"
+          ],
+          "environments": [
+            "development"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "dompurify",
+      "severity": "low",
+      "advisory": "GHSA-6688-9rhm-gjv2",
+      "title": "DOMPurify: IN_PLACE returns a force-removed rawtext root whose text carries attacker markup — pure HTML reparse executes",
+      "url": "https://github.com/advisories/GHSA-6688-9rhm-gjv2",
+      "affected": "<=3.4.15",
+      "patched": ">=3.4.16",
+      "recommendation": "Upgrade to version 3.4.16 or later",
+      "occurrences": [
+        {
+          "version": "2.5.9",
+          "paths": [
+            ".>jspdf>dompurify"
+          ],
+          "environments": [
+            "production"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "source-map-js",
+      "severity": "high",
+      "advisory": "GHSA-68fv-2mgg-jv7q",
+      "title": "source-map-js allows event-loop denial of service through indexed source-map section offsets",
+      "url": "https://github.com/advisories/GHSA-68fv-2mgg-jv7q",
+      "affected": ">=1.0.0 <1.2.2",
+      "patched": ">=1.2.2",
+      "recommendation": "Upgrade to version 1.2.2 or later",
+      "occurrences": [
+        {
+          "version": "1.2.1",
+          "paths": [
+            ".>postcss>source-map-js"
+          ],
+          "environments": [
+            "development"
+          ]
+        }
+      ]
+    },
+    {
+      "package": "postcss-selector-parser",
+      "severity": "moderate",
+      "advisory": "GHSA-rj75-hqrm-r3gf",
+      "title": "PostCSS: Quadratic complexity in flat selector parsing allows CPU exhaustion",
+      "url": "https://github.com/advisories/GHSA-rj75-hqrm-r3gf",
+      "affected": "<7.1.6",
+      "patched": ">=7.1.6",
+      "recommendation": "Upgrade to version 7.1.6 or later",
+      "occurrences": [
+        {
+          "version": "6.1.4",
+          "paths": [
+            ".>tailwindcss>postcss-selector-parser"
+          ],
+          "environments": [
+            "development"
+          ]
+        }
+      ]
+    }
+  ]
+}

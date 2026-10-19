@@ -13,6 +13,7 @@ ENV PORT=8080
 ENV NOTESGYM_DATA_DIR=/data
 COPY --from=build /app/dist ./dist
 COPY server.js package.json ./
+COPY integration/security.js ./integration/security.js
 COPY src/lib/analytics/config.js src/lib/analytics/statistics.js src/lib/analytics/simulationSettings.js src/lib/analytics/accountSimulationSettings.js ./src/lib/analytics/
 RUN mkdir -p /data
 VOLUME ["/data"]
