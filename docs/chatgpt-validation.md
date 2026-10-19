@@ -1,5 +1,7 @@
 # Validation de la V1.1 NotesGym × ChatGPT
 
+La correction du consentement Firefox du 19 octobre 2026, sa cause et les résultats actualisés (**104 tests réussis**, lint et build réussis) sont documentés dans [Consentement OAuth Firefox](chatgpt-oauth-firefox-consent.md). Les résultats ci-dessous conservent l’historique de la validation V1.1 du 18 octobre.
+
 Vérifications exécutées le 18 octobre 2026 sous Windows, Node.js **24.19.0**, SQLite natif **3.53.3**, pnpm **10.11.0**. La V1.1 continue la branche et la PR #20 depuis `292b563`, sans modification de main ni données réelles. La V1 initiale comptait 57 tests et 50 avis de dépendances ; les résultats ci-dessous sont ceux de la stabilisation.
 
 | Vérification | Résultat réel |

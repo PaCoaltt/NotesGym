@@ -53,9 +53,9 @@ async function fixture(t, overrides = {}) {
   const base = `http://127.0.0.1:${port}`;
   const publicBase = overrides.NOTESGYM_PUBLIC_URL || base;
   const proxyHeaders = publicBase !== base ? { host: new URL(publicBase).host, 'x-forwarded-proto': 'https', 'cf-connecting-ip': '192.0.2.10' } : {};
-  // Node fetch intentionally overwrites Host. Use a real local HTTP request to
-  // simulate TLS offloading while preserving the configured public Host.
-  const appFetch = (url, options = {}) => publicBase === base ? fetch(url, options) : new Promise((resolve, reject) => {
+  // Node fetch overwrites Host and Sec-Fetch-Mode. Use real local HTTP requests
+  // to preserve the public proxy Host and the browser metadata under test.
+  const appFetch = (url, options = {}) => new Promise((resolve, reject) => {
     const target = new URL(url); const body = options.body?.toString();
     const headers = { ...options.headers };
     if (body) headers['content-length'] = Buffer.byteLength(body);
@@ -64,7 +64,7 @@ async function fixture(t, overrides = {}) {
       res.on('end', () => {
         const responseHeaders = new Headers();
         for (let i = 0; i < res.rawHeaders.length; i += 2) responseHeaders.append(res.rawHeaders[i], res.rawHeaders[i + 1]);
-        const response = new Response(Buffer.concat(chunks), { status: res.statusCode, headers: responseHeaders });
+        const response = new Response([204, 205, 304].includes(res.statusCode) ? null : Buffer.concat(chunks), { status: res.statusCode, headers: responseHeaders });
         Object.defineProperty(response, 'url', { value: String(url) }); resolve(response);
       });
     });
@@ -99,7 +99,8 @@ async function fixture(t, overrides = {}) {
       const target = new URL(url, publicBase);
       const transportURL = new URL(target.pathname + target.search, base);
       const res = await appFetch(transportURL, { ...options, redirect: 'manual', headers: { ...proxyHeaders,
-        cookie: [...cookies.values()].filter(c => target.pathname === c.path || target.pathname.startsWith(c.path.endsWith('/') ? c.path : c.path + '/'))
+        cookie: [...cookies.values()].filter(c => (!options.omitInteractionCookies || !c.name.startsWith('_interaction')) &&
+          (target.pathname === c.path || target.pathname.startsWith(c.path.endsWith('/') ? c.path : c.path + '/')))
           .sort((a, b) => b.path.length - a.path.length).map(c => `${c.name}=${c.value}`).join('; '), ...options.headers,
       } });
       for (const cookie of res.headers.getSetCookie()) {
@@ -118,7 +119,7 @@ async function fixture(t, overrides = {}) {
     if (overrides.NOTESGYM_SECURE_COOKIES === 'true') assert.match(res.headers.get('set-cookie'), /; Secure/);
     return request;
   };
-  async function authorize(request, { scope = 'openid notes:read', decision = 'allow', clientId = 'test-client' } = {}) {
+  async function authorize(request, { scope = 'openid notes:read', decision = 'allow', clientId = 'test-client', consentHeaders = {}, pending = false } = {}) {
     const verifier = randomBytes(32).toString('base64url');
     const params = new URLSearchParams({ client_id: clientId, redirect_uri: publicBase + '/test-callback', response_type: 'code', scope,
       resource: publicBase + '/mcp', code_challenge_method: 'S256', code_challenge: createHash('sha256').update(verifier).digest('base64url'), state: 'test-state' });
@@ -137,8 +138,9 @@ async function fixture(t, overrides = {}) {
       // tracked explicitly by the redirect above in a wrapper below.
       const action = /<form method="post"(?: action="([^"]+)")?/.exec(html)?.[1];
       assert.ok(!action, 'Consent uses the same interaction URL');
+      if (pending) return { url: res.url, csrf, verifier, clientId, headers: res.headers };
       // Fetch response.url remains the exact URL despite redirect: manual.
-      res = await request(res.url, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', origin: publicBase }, body: new URLSearchParams({ csrf, decision }) });
+      res = await request(res.url, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', origin: publicBase, ...consentHeaders }, body: new URLSearchParams({ csrf, decision }) });
     }
     throw new Error('Too many OAuth redirects');
   }
@@ -150,6 +152,121 @@ async function fixture(t, overrides = {}) {
   };
   return { base, dir, login, browser, authorize, exchange, restart, proxyHeaders, fetch: appFetch };
 }
+
+const firefoxFormHeaders = { origin: 'null', 'sec-fetch-site': 'same-origin', 'sec-fetch-mode': 'navigate',
+  'sec-fetch-dest': 'document', 'content-type': 'application/x-www-form-urlencoded' };
+
+test('Firefox no-referrer OAuth consent: opaque Origin with same-origin form navigation', async t => {
+  const f = await fixture(t);
+  const request = await f.login('a@example.invalid');
+  const consent = await f.authorize(request, { pending: true });
+  assert.equal(consent.headers.get('referrer-policy'), 'no-referrer');
+  const accepted = await request(consent.url, { method: 'POST', headers: firefoxFormHeaders,
+    body: new URLSearchParams({ csrf: consent.csrf, decision: 'allow' }) });
+  assert.equal(accepted.status, 303, await accepted.text());
+  assert.equal((await request(consent.url, { method: 'POST', headers: firefoxFormHeaders,
+    body: new URLSearchParams({ csrf: consent.csrf, decision: 'allow' }) })).status, 403, 'CSRF replay refused');
+  const authorization = await f.authorize(await f.login('a@example.invalid'), { consentHeaders: firefoxFormHeaders });
+  assert.equal((await f.exchange(authorization)).status, 200, 'full PKCE exchange succeeds');
+  const denied = await f.authorize(await f.login('b@example.invalid'), { decision: 'deny', consentHeaders: firefoxFormHeaders });
+  assert.equal(denied.callback.searchParams.get('error'), 'access_denied');
+  assert.equal(denied.callback.searchParams.has('code'), false);
+});
+
+test('opaque OAuth consent rejects hostile or incomplete request context', async t => {
+  const f = await fixture(t);
+  const request = await f.login('a@example.invalid');
+  const consent = await f.authorize(request, { pending: true });
+  const cases = [
+    ['cross-site', { 'sec-fetch-site': 'cross-site' }],
+    ['same-site', { 'sec-fetch-site': 'same-site' }],
+    ['no initiating site', { 'sec-fetch-site': 'none' }],
+    ['missing site', { 'sec-fetch-site': undefined }],
+    ['missing mode', { 'sec-fetch-mode': undefined }],
+    ['fetch CORS', { 'sec-fetch-mode': 'cors' }],
+    ['fetch no-cors', { 'sec-fetch-mode': 'no-cors' }],
+    ['missing destination', { 'sec-fetch-dest': undefined }],
+    ['iframe', { 'sec-fetch-dest': 'iframe' }],
+    ['missing content type', { 'content-type': undefined }],
+    ['JSON', { 'content-type': 'application/json' }],
+    ['multipart', { 'content-type': 'multipart/form-data' }],
+    ['content type lookalike', { 'content-type': 'application/x-www-form-urlencoded-evil' }],
+    ['hostile origin', { origin: 'https://attacker.invalid' }],
+    ['hostile referer', { referer: 'https://attacker.invalid/form' }],
+    ['malformed referer', { referer: 'invalid' }],
+    ['cross-site despite exact origin', { origin: f.base, 'sec-fetch-site': 'cross-site' }],
+  ];
+  for (const [name, changes] of cases) await t.test(name, async () => {
+    const headers = Object.fromEntries(Object.entries({ ...firefoxFormHeaders, ...changes }).filter(([, value]) => value !== undefined));
+    const res = await request(consent.url, { method: 'POST', headers,
+      body: new URLSearchParams({ csrf: consent.csrf, decision: 'allow' }) });
+    assert.equal(res.status, 403);
+    assert.deepEqual(await res.json(), { error: 'Cross-origin request refused' });
+  });
+  // Failed provenance checks cannot approve or consume a valid consent form.
+  assert.equal((await request(consent.url, { method: 'POST', headers: { ...firefoxFormHeaders, referer: consent.url },
+    body: new URLSearchParams({ csrf: consent.csrf, decision: 'deny' }) })).status, 303);
+});
+
+test('opaque OAuth consent requires authentication, single-use CSRF and matching session/path/interaction', async t => {
+  const f = await fixture(t);
+  const request = await f.login('a@example.invalid');
+  const pending = () => f.authorize(request, { pending: true });
+  const submit = (browser, form, csrf = form.csrf, headers = {}) => browser(form.url, { method: 'POST',
+    headers: { ...firefoxFormHeaders, ...headers }, body: new URLSearchParams({ csrf, decision: 'allow' }) });
+  await t.test('unauthenticated', async () => assert.equal((await submit(f.browser(), await pending())).status, 401));
+  await t.test('missing and invalid CSRF', async () => {
+    const form = await pending();
+    assert.equal((await submit(request, form, '')).status, 403);
+    assert.equal((await submit(request, form, 'invalid')).status, 403);
+  });
+  await t.test('another user and consumed token', async () => {
+    const form = await pending();
+    assert.equal((await submit(await f.login('b@example.invalid'), form)).status, 403);
+    assert.equal((await submit(request, form)).status, 403);
+  });
+  await t.test('another session of the same user', async () => {
+    assert.equal((await submit(await f.login('a@example.invalid'), await pending())).status, 403);
+  });
+  await t.test('another interaction path', async () => {
+    const first = await pending(); const second = await pending();
+    assert.equal((await submit(request, second, first.csrf)).status, 403);
+  });
+  await t.test('missing provider interaction cookie', async () => {
+    const form = await pending();
+    const res = await request(form.url, { method: 'POST', omitInteractionCookies: true, headers: firefoxFormHeaders,
+      body: new URLSearchParams({ csrf: form.csrf, decision: 'allow' }) });
+    assert.equal(res.status, 403, 'cookie binding rejects a missing interaction cookie before granting consent');
+  });
+  await t.test('concurrent replay grants at most once', async () => {
+    const form = await pending();
+    const results = await Promise.all([submit(request, form), submit(request, form)]);
+    assert.deepEqual(results.map(res => res.status).sort(), [303, 403]);
+  });
+  await t.test('restart invalidates outstanding forms', async () => {
+    const form = await pending(); await f.restart();
+    assert.equal((await submit(await f.login('a@example.invalid'), form)).status, 403);
+  });
+});
+
+test('opaque origin exception never extends to APIs, MCP or disconnect', async t => {
+  const f = await fixture(t); const request = await f.login('a@example.invalid');
+  const token = await f.exchange(await f.authorize(request));
+  for (const route of ['/api/notes', '/api/auth/login', '/api/auth/logout', '/mcp', '/chatgpt/disconnect', '/chatgpt/interaction/invalid/extra']) {
+    await t.test(route, async () => {
+      const res = await request(route, { method: 'POST', headers: { ...firefoxFormHeaders, authorization: 'Bearer ' + token.body.access_token },
+        body: new URLSearchParams({ csrf: 'invalid', decision: 'allow' }) });
+      assert.equal(res.status, 403); assert.deepEqual(await res.json(), { error: 'Cross-origin request refused' });
+    });
+  }
+});
+
+test('opaque OAuth consent works behind the trusted HTTPS proxy', async t => {
+  const f = await fixture(t, { NODE_ENV: 'production', NOTESGYM_PUBLIC_URL: 'https://notesgym.example.invalid',
+    NOTESGYM_TRUST_PROXY: 'true', NOTESGYM_TRUSTED_PROXY_IPS: '127.0.0.1' });
+  const authorization = await f.authorize(await f.login('a@example.invalid'), { consentHeaders: firefoxFormHeaders });
+  assert.equal((await f.exchange(authorization)).status, 200);
+});
 
 test('real OAuth PKCE and MCP SDK: consent, isolation, invalid requests, revocation, read-only', async t => {
   const f = await fixture(t);

@@ -137,16 +137,31 @@ export async function createChatGptIntegration({ env = process.env, getCurrentUs
     for (const [key, form] of forms) if (form.expires < Date.now()) forms.delete(key);
     const sessionHash = crypto.createHash('sha256').update(req.headers.cookie || '').digest('hex');
     if (req.method === 'POST') {
-      sameOrigin(req, origin);
+      // Firefox can censor Origin under our no-referrer policy. This exception
+      // belongs only to consent forms; sameOrigin remains strict for every API.
+      const opaqueConsent = req.headers.origin === 'null' && /^\/chatgpt\/interaction\/[A-Za-z0-9_-]+$/.test(route);
+      if (opaqueConsent) {
+        if (req.headers['sec-fetch-site'] !== 'same-origin' || req.headers['sec-fetch-mode'] !== 'navigate' ||
+            req.headers['sec-fetch-dest'] !== 'document' ||
+            req.headers['content-type']?.split(';')[0].trim().toLowerCase() !== 'application/x-www-form-urlencoded') {
+          throw httpError(403, 'Cross-origin request refused');
+        }
+        // no-referrer normally omits Referer; reject contradictory provenance.
+        if (req.headers.referer) {
+          let referer;
+          try { referer = new URL(req.headers.referer); } catch { throw httpError(403, 'Cross-origin request refused'); }
+          if (referer.origin !== origin) throw httpError(403, 'Cross-origin request refused');
+        }
+      } else sameOrigin(req, origin);
       const body = new URLSearchParams(await readLimitedBody(req, 4096));
       const csrf = body.get('csrf'); const form = forms.get(csrf); forms.delete(csrf);
-      if (!form || form.userId !== user.id || form.sessionHash !== sessionHash || form.path !== route) throw httpError(403, 'Invalid or expired form');
+      if (!form || form.expires <= Date.now() || form.userId !== user.id || form.sessionHash !== sessionHash || form.path !== route) throw httpError(403, 'Invalid or expired form');
       if (route === '/chatgpt/disconnect') {
         store.revokeAccount(user.id);
         page(res, '<p>Accès ChatGPT révoqué. Reconnectez-vous depuis ChatGPT pour autoriser de nouveau.</p><a href="/">NotesGym</a>'); return true;
       }
       const interaction = await provider.interactionDetails(req, res);
-      if (interaction.uid !== form.uid) throw httpError(403, 'Interaction mismatch');
+      if (interaction.uid !== form.uid || route !== `/chatgpt/interaction/${interaction.uid}`) throw httpError(403, 'Interaction mismatch');
       if (body.get('decision') !== 'allow') { await provider.interactionFinished(req, res, { error: 'access_denied', error_description: 'User declined consent' }, { mergeWithLastSubmission: false }); return true; }
       // Always create a fresh grant; never use another account's provider session/grant.
       const grant = new provider.Grant({ accountId: user.id, clientId: interaction.params.client_id });
