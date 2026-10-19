@@ -60,3 +60,21 @@ export function sameOrigin(req, base) {
   const site = req.headers['sec-fetch-site'];
   if (site === 'cross-site' || (origin && origin !== new URL(base).origin)) throw httpError(403, 'Cross-origin request refused');
 }
+
+// Public HTTPS identity is independent of the HTTP hop from a TLS proxy.
+// Forwarded headers may supply the scheme only when the direct peer is trusted.
+export function webOrigin(req, publicOrigin, proxy) {
+  if (publicOrigin) return publicOrigin;
+  const protocol = proxy.isTrusted(req) && req.headers['x-forwarded-proto'] === 'https' ? 'https:' : 'http:';
+  return new URL(`${protocol}//${req.headers.host}`).origin;
+}
+
+export function readPublicOrigin(env = process.env) {
+  if (!env.NOTESGYM_PUBLIC_URL) return undefined;
+  let url;
+  try { url = new URL(env.NOTESGYM_PUBLIC_URL); } catch { throw new Error('Invalid NOTESGYM_PUBLIC_URL'); }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+    throw new Error('NOTESGYM_PUBLIC_URL must be an HTTP(S) origin without credentials, path, query or fragment');
+  }
+  return url.origin;
+}

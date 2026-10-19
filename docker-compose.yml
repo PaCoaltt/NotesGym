@@ -8,6 +8,11 @@ services:
       # Format: email:password,email2:password2
       NOTESGYM_USERS: "parent@example.com:change-me,student@example.com:change-me-too"
       NOTESGYM_DATA_DIR: "/data"
+      # The public browser origin may use HTTPS while the tunnel's HTTP hop does not.
+      NOTESGYM_PUBLIC_URL: "${NOTESGYM_PUBLIC_URL:-}"
+      NOTESGYM_TRUST_PROXY: "${NOTESGYM_TRUST_PROXY:-false}"
+      NOTESGYM_TRUSTED_PROXY_IPS: "${NOTESGYM_TRUSTED_PROXY_IPS:-}"
+      NOTESGYM_SECURE_COOKIES: "${NOTESGYM_SECURE_COOKIES:-false}"
     volumes:
       - notesgym-data:/data
     restart: unless-stopped

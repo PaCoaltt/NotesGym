@@ -65,6 +65,22 @@ docker compose build --pull
 docker compose up -d
 ```
 
+## HTTPS behind Cloudflare Tunnel or another reverse proxy
+
+For `https://notesgym.lupachat.ch`, set this in the Compose `.env` file:
+
+```dotenv
+NOTESGYM_PUBLIC_URL=https://notesgym.lupachat.ch
+```
+
+The standard `docker-compose.yml` forwards this setting into the container. The browser uses HTTPS even when the tunnel connects to the app over HTTP on port 8080. The configured public origin is used for write-request origin checks and `Secure` session cookies; an internal HTTP hop must not change it. Keep existing accounts, passwords, data paths and the `notesgym-data` volume unchanged.
+
+`NOTESGYM_TRUST_PROXY` can stay `false` when the public URL is explicit. To use per-visitor rate limits with `CF-Connecting-IP`, enable it and set `NOTESGYM_TRUSTED_PROXY_IPS` to the exact direct proxy IP/CIDR as seen by the app. Never use a trust-all network. With a trusted peer and no explicit public URL, `X-Forwarded-Proto: https` and the request Host supply the public origin. Untrusted forwarded headers are ignored; hostile origins, `Origin: null`, and cross-site writes remain refused.
+
+Keep the tunnel's service target, DNS and credentials as currently configured. Cloudflare documents [forwarded headers](https://developers.cloudflare.com/fundamentals/reference/http-headers/) and the optional [Host override](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/origin-parameters/#httphostheader). With an explicit public URL, no Host override is required by NotesGym's origin comparison. A native Node process must receive the environment variables directly; `.env` is not loaded automatically by `npm start`.
+
+For local HTTP, leave the public URL unset or set it to the exact local origin. `NOTESGYM_SECURE_COOKIES=true` can force secure cookies; an HTTPS public URL enables them automatically. See [the cleanup and validation report](docs/classic-web-cleanup.md) for the removed integration and deployment transition details.
+
 ## User Accounts
 
 Users are created from the `NOTESGYM_USERS` environment variable.
