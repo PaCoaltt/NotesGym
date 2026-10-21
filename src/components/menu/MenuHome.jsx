@@ -1,5 +1,6 @@
 import { BarChart3, CircleHelp, Database, FlaskConical, History, Lightbulb, Search, Settings, Sparkles } from "lucide-react";
 import { MenuButton } from "./MenuPrimitives";
+import { Link } from 'react-router-dom';
 
 export default function MenuHome({ t, statisticsTitle, labTitle, onNavigate, onInsights, onStatistics, onLab }) {
   return <div className="space-y-3">
@@ -11,6 +12,7 @@ export default function MenuHome({ t, statisticsTitle, labTitle, onNavigate, onI
     <MenuButton icon={History} onClick={() => onNavigate("replay")}>{t.replay}</MenuButton>
     <MenuButton icon={Sparkles} onClick={() => onNavigate("dreamGrades")}>{t.dreamGrades}</MenuButton>
     <div className="space-y-2 border-t border-[#c8ced6] pt-4">
+      <Link to="/account" className="block min-h-11 rounded-xl px-4 py-3 font-semibold text-[#5a6a7a]">Mon compte</Link>
       <MenuButton icon={Settings} onClick={() => onNavigate("preferences")} chevron>{t.preferences}</MenuButton>
       <MenuButton icon={Database} onClick={() => onNavigate("data")} chevron>{t.data}</MenuButton>
       <MenuButton icon={CircleHelp} onClick={() => onNavigate("help")} chevron>{t.help}</MenuButton>

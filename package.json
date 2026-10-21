@@ -3,6 +3,8 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": { "node": ">=24.0.0 <25" },
+  "packageManager": "pnpm@12.14.0",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -10,7 +12,9 @@
     "test": "node --test",
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview",
-    "start": "node server.js"
+    "start": "node server.js",
+    "auth:migrate": "node server/migrate-auth.js",
+    "test:auth": "node --test test/auth-v2.test.js test/server-web.test.js test/account-simulation-api.test.js"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^17.0.0",
@@ -56,6 +60,7 @@
     "lodash": "^4.17.21",
     "lucide-react": "^0.475.0",
     "next-themes": "^0.4.4",
+    "nodemailer": "10.1.7",
     "react": "^18.2.0",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.2.0",

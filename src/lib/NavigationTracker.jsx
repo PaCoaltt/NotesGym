@@ -14,7 +14,8 @@ export default function NavigationTracker() {
     useEffect(() => {
         window.parent?.postMessage({
             type: "app_changed_url",
-            url: window.location.href
+            // Auth links may carry a bearer token in their fragment.
+            url: window.location.origin + window.location.pathname
         }, '*');
     }, [location]);
 

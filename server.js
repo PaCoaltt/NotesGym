@@ -3,6 +3,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
+import { AuthStore } from "./server/auth-store.js";
+import { AuthService } from "./server/auth.js";
+import { createMailer } from "./server/mailer.js";
+import { lockData } from "./server/data-lock.js";
 
 import { reconcileAccountSimulationPlans, patchAccountSimulationPlans, migrateAccountSimulationPlans } from "./src/lib/analytics/accountSimulationSettings.js";
 import { httpError, proxyPolicy, rateLimiter, readLimitedBody, sameOrigin, securityHeaders, readPublicOrigin, webOrigin } from "./server/security.js";
@@ -10,17 +14,17 @@ import { httpError, proxyPolicy, rateLimiter, readLimitedBody, sameOrigin, secur
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 8080);
 const DATA_DIR = process.env.NOTESGYM_DATA_DIR || path.join(__dirname, "data");
-const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 
 const USERS_FILE = path.join(DATA_DIR, "users.json");
 const NOTES_FILE = path.join(DATA_DIR, "notes.json");
 const SIMULATION_SETTINGS_FILE = path.join(DATA_DIR, "simulation-settings.json");
 const PUBLIC_DIR = path.join(__dirname, "dist");
 
-const sessions = new Map();
+let authStore;
+let auth;
+let releaseData;
 const publicOrigin = readPublicOrigin();
 const cookieFlags = req => `HttpOnly; SameSite=Lax; Path=/${process.env.NOTESGYM_SECURE_COOKIES === "true" || webOrigin(req, publicOrigin, proxy).startsWith("https:") ? "; Secure" : ""}`;
-const loginAllowed = rateLimiter({ limit: 20, windowMs: 600000 });
 const apiAllowed = rateLimiter({ limit: 600 });
 const proxy = proxyPolicy();
 
@@ -31,10 +35,9 @@ const jsonHeaders = {
 
 async function ensureDataFiles() {
   await fs.mkdir(DATA_DIR, { recursive: true });
-  await ensureFile(USERS_FILE, []);
   await ensureFile(NOTES_FILE, []);
   await ensureFile(SIMULATION_SETTINGS_FILE, []);
-  await seedUsersFromEnv();
+
 }
 
 async function ensureFile(file, fallback) {
@@ -71,106 +74,37 @@ async function writeJson(file, value) {
   return writeQueue;
 }
 
-function parseSeedUsers() {
-  const raw = process.env.NOTESGYM_USERS || "";
-  return raw
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-    .map((entry) => {
-      const separator = entry.indexOf(":");
-      if (separator === -1) return null;
-      return {
-        email: entry.slice(0, separator).trim().toLowerCase(),
-        password: entry.slice(separator + 1),
-      };
-    })
-    .filter((user) => user?.email && user.password);
-}
+async function getCurrentUser(req) { return auth.current(req); }
 
-async function seedUsersFromEnv() {
-  const seeded = parseSeedUsers();
-  if (seeded.length === 0) return;
-
-  const users = await readJson(USERS_FILE, []);
-  let changed = false;
-
-  for (const seed of seeded) {
-    const existing = users.find((user) => user.email === seed.email);
-    if (existing) continue;
-    users.push(createUser(seed.email, seed.password));
-    changed = true;
+async function initializeAuth() {
+  releaseData = await lockData(DATA_DIR);
+  if (process.env.NOTESGYM_USERS) throw new Error('NOTESGYM_USERS is retired. Materialize legacy accounts with the old version, then run the explicit migration.');
+  const dbFile = path.join(DATA_DIR, 'auth.sqlite');
+  let exists = false;
+  try { await fs.access(dbFile); exists = true; } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  if (!exists) {
+    for (const file of [USERS_FILE, NOTES_FILE, SIMULATION_SETTINGS_FILE]) {
+      const records = await readJson(file, []);
+      if (!Array.isArray(records) || records.length) throw new Error('Legacy data detected. Run server/migrate-auth.js offline before starting auth v2.');
+    }
   }
-
-  if (changed) await writeJson(USERS_FILE, users);
-}
-
-function createUser(email, password) {
-  const salt = crypto.randomBytes(16).toString("hex");
-  return {
-    id: crypto.randomUUID(),
-    email,
-    role: "user",
-    passwordHash: hashPassword(password, salt),
-    salt,
-    created_date: new Date().toISOString(),
-  };
-}
-
-function hashPassword(password, salt) {
-  return crypto.scryptSync(password, salt, 64).toString("hex");
-}
-
-function verifyPassword(password, user) {
-  const expected = Buffer.from(user.passwordHash, "hex");
-  const actual = Buffer.from(hashPassword(password, user.salt), "hex");
-  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
-}
-
-function publicUser(user) {
-  return {
-    id: user.id,
-    email: user.email,
-    role: user.role || "user",
-    created_date: user.created_date,
-  };
-}
-
-function createSession(userId) {
-  for (const [key, session] of sessions) if (session.expiresAt < Date.now()) sessions.delete(key);
-  if (sessions.size >= 10000) throw httpError(503, "Too many active sessions");
-  const token = crypto.randomBytes(32).toString("hex");
-  sessions.set(token, {
-    userId,
-    expiresAt: Date.now() + SESSION_TTL_MS,
-  });
-  return token;
-}
-
-function getCookie(req, name) {
-  const header = req.headers.cookie || "";
-  const cookies = Object.fromEntries(
-    header.split(";").map((part) => {
-      const [key, ...value] = part.trim().split("=");
-      return [key, decodeURIComponent(value.join("=") || "")];
-    })
-  );
-  return cookies[name];
-}
-
-async function getCurrentUser(req) {
-  const token = getCookie(req, "notesgym_session");
-  if (!token) return null;
-
-  const session = sessions.get(token);
-  if (!session || session.expiresAt < Date.now()) {
-    sessions.delete(token);
-    return null;
+  authStore = new AuthStore(dbFile, { create: !exists });
+  await fs.chmod(dbFile, 0o600);
+  if (exists) {
+    // Never silently replace a missing/corrupt application store on an established volume.
+    const initialized = authStore.db.prepare("SELECT 1 FROM meta WHERE key='app-initialized'").get();
+    const legacySource = authStore.db.prepare("SELECT value FROM meta WHERE key='legacy-source'").get();
+    for (const file of [NOTES_FILE, SIMULATION_SETTINGS_FILE]) {
+      const optional = !initialized && (!legacySource || JSON.parse(legacySource.value)[path.basename(file)] === null);
+      let records;
+      try { records = JSON.parse(await fs.readFile(file, 'utf8')); }
+      catch (error) { if (error.code === 'ENOENT' && optional) continue; throw error; }
+      if (!Array.isArray(records)) throw new Error('Invalid application store');
+    }
   }
-
-  const users = await readJson(USERS_FILE, []);
-  const user = users.find((item) => item.id === session.userId);
-  return user || null;
+  auth = new AuthService(authStore, { mailer: await createMailer(), publicOrigin, cookieFlags, clientIP: req => proxy.clientIP(req) });
+  await ensureDataFiles();
+  authStore.db.prepare("INSERT OR IGNORE INTO meta VALUES('app-initialized','1')").run();
 }
 
 async function readBody(req) {
@@ -232,7 +166,7 @@ function accountSimulationSettings(user, operation = "read", payload, requestId)
     if (!Array.isArray(records)) throw new Error("Invalid simulation settings store");
     const index = records.findIndex(record => record.user_id === user.id);
     const previous = index < 0 ? { user_id: user.id, plans: {}, revision: 0 } : records[index];
-    const notes = (await readJson(NOTES_FILE, [])).filter(note => note.created_by === user.email);
+    const notes = (await readJson(NOTES_FILE, [])).filter(note => authStore.owns(note, user));
     const replay = operation === "patch" && (previous.requestIds || []).includes(requestId);
     const plans = operation === "patch" && !replay ? patchAccountSimulationPlans(previous.plans, notes, payload)
       : operation === "migrate" ? migrateAccountSimulationPlans(previous.plans, notes, payload)
@@ -256,33 +190,9 @@ async function handleApi(req, res, url) {
       return sendJson(res, 200, { ok: true });
     }
 
-    if (url.pathname === "/api/auth/login" && req.method === "POST") {
-      if (!loginAllowed(proxy.clientIP(req))) return sendError(res, 429, "Too many login attempts");
-      const { email, password } = await readBody(req);
-      const users = await readJson(USERS_FILE, []);
-      const user = users.find((item) => item.email === String(email || "").toLowerCase());
-      if (!user || !verifyPassword(String(password || ""), user)) {
-        return sendError(res, 401, "Invalid email or password");
-      }
-
-      const token = createSession(user.id);
-      return sendJson(res, 200, { user: publicUser(user) }, {
-        "set-cookie": `notesgym_session=${encodeURIComponent(token)}; ${cookieFlags(req)}; Max-Age=${SESSION_TTL_MS / 1000}`,
-      });
-    }
-
-    if (url.pathname === "/api/auth/logout" && req.method === "POST") {
-      const token = getCookie(req, "notesgym_session");
-      if (token) sessions.delete(token);
-      return sendJson(res, 200, { ok: true }, {
-        "set-cookie": `notesgym_session=; ${cookieFlags(req)}; Max-Age=0`,
-      });
-    }
-
-    if (url.pathname === "/api/auth/me" && req.method === "GET") {
-      const user = await requireUser(req, res);
-      if (!user) return;
-      return sendJson(res, 200, publicUser(user));
+    if (url.pathname.startsWith("/api/auth/")) {
+      const result = await auth.handle(req, url.pathname, ["GET", "HEAD"].includes(req.method) ? {} : await readBody(req));
+      return sendJson(res, 200, result.data, result.headers);
     }
 
     if (url.pathname === "/api/simulation-settings" && req.method === "GET") {
@@ -311,7 +221,7 @@ async function handleApi(req, res, url) {
       if (!user) return;
       const notes = await readJson(NOTES_FILE, []);
       const ownNotes = notes
-        .filter((note) => note.created_by === user.email)
+        .filter((note) => authStore.owns(note, user))
         .sort((a, b) => String(b.created_date || "").localeCompare(String(a.created_date || "")));
       return sendJson(res, 200, ownNotes);
     }
@@ -324,6 +234,7 @@ async function handleApi(req, res, url) {
       const note = {
         id: crypto.randomUUID(),
         ...validateNote(await readBody(req)),
+        user_id: user.id,
         created_by: user.email,
         created_date: now,
         updated_date: now,
@@ -345,7 +256,7 @@ async function handleApi(req, res, url) {
       const updatedAt = new Date().toISOString();
       let updatedCount = 0;
       for (const note of notes) {
-        if (note.created_by === user.email && note.matiere === subject) {
+        if (authStore.owns(note, user) && note.matiere === subject) {
           note.matiere_hors_bulletin = Boolean(body.excluded);
           note.updated_date = updatedAt;
           updatedCount += 1;
@@ -370,7 +281,7 @@ async function handleApi(req, res, url) {
       let archivedCount = 0;
 
       for (const note of notes) {
-        if (note.created_by === user.email && years.has(note.annee) && !note.archived) {
+        if (authStore.owns(note, user) && years.has(note.annee) && !note.archived) {
           note.archived = true;
           note.updated_date = updatedAt;
           archivedCount += 1;
@@ -387,7 +298,7 @@ async function handleApi(req, res, url) {
       if (!user) return;
       const notes = await readJson(NOTES_FILE, []);
       const id = decodeURIComponent(noteMatch[1]);
-      const index = notes.findIndex((note) => note.id === id && note.created_by === user.email);
+      const index = notes.findIndex((note) => note.id === id && authStore.owns(note, user));
       if (index === -1) return sendError(res, 404, "Note not found");
 
       notes[index] = {
@@ -407,7 +318,7 @@ async function handleApi(req, res, url) {
       if (!user) return;
       const notes = await readJson(NOTES_FILE, []);
       const id = decodeURIComponent(noteMatch[1]);
-      const kept = notes.filter((note) => !(note.id === id && note.created_by === user.email));
+      const kept = notes.filter((note) => !(note.id === id && authStore.owns(note, user)));
       if (kept.length === notes.length) return sendError(res, 404, "Note not found");
       await writeJson(NOTES_FILE, kept);
       return sendJson(res, 200, { ok: true });
@@ -438,7 +349,7 @@ async function serveStatic(req, res, url) {
   } catch {
     const fallback = await fs.readFile(path.join(PUBLIC_DIR, "index.html"));
     // Only application pages receive the SPA fallback as a successful route.
-    const appPage = /^\/(?:Dashboard|Home|Insights|Statistics|Lab)\/?$/i.test(url.pathname);
+    const appPage = /^\/(?:Dashboard|Home|Insights|Statistics|Lab|login|register|verify-email|forgot-password|reset-password|account)\/?$/i.test(url.pathname);
     res.writeHead(appPage ? 200 : 404, { "content-type": "text/html; charset=utf-8" });
     return res.end(fallback);
   }
@@ -460,7 +371,12 @@ function contentType(file) {
   }[ext] || "application/octet-stream";
 }
 
-await ensureDataFiles();
+try { await initializeAuth(); }
+catch (error) {
+  if (authStore) authStore.close();
+  if (releaseData) await releaseData();
+  throw error;
+}
 
 // One writer process per data volume. Serialize whole API transactions so concurrent
 // note creates/edits cannot read the same snapshot and discard each other's updates.
@@ -474,6 +390,7 @@ const server = createServer(async (req, res) => {
       if (!apiAllowed(proxy.clientIP(req))) throw httpError(429, "Too many requests");
       if (!["GET", "HEAD"].includes(req.method)) {
         sameOrigin(req, webOrigin(req, publicOrigin, proxy));
+        if (!(req.headers['content-type'] || '').toLowerCase().startsWith('application/json')) throw httpError(415, 'JSON content type required');
         // Consume bounded bodies before entering the transaction queue.
         req.notesgymBody = await readBody(req);
       }
@@ -493,7 +410,13 @@ server.requestTimeout = 15000;
 server.headersTimeout = 10000;
 const shutdown = () => {
   const timeout = setTimeout(() => process.exit(1), 15000); timeout.unref();
-  server.close(() => process.exit(0));
+  server.close(async () => {
+    await apiQueue;
+    await Promise.allSettled([...auth.mailJobs]);
+    authStore.close();
+    await releaseData();
+    process.exit(0);
+  });
 };
 process.once('SIGTERM', shutdown);
 process.once('SIGINT', shutdown);

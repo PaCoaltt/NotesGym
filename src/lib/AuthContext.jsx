@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import { queryClientInstance } from '@/lib/query-client';
 
 const AuthContext = createContext();
 
@@ -13,22 +14,30 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     checkUserAuth();
+    const expired = () => {
+      setUser(null);
+      setIsAuthenticated(false);
+      queryClientInstance.cancelQueries().then(() => queryClientInstance.clear());
+    };
+    window.addEventListener('notesgym:session-expired', expired);
+    return () => window.removeEventListener('notesgym:session-expired', expired);
   }, []);
 
   const checkAppState = async () => {
     await checkUserAuth();
   };
 
-  const checkUserAuth = async () => {
+  const checkUserAuth = async (silent = false) => {
     try {
-      setIsLoadingAuth(true);
+      if (!silent) setIsLoadingAuth(true);
       setAuthError(null);
       const currentUser = await base44.auth.me();
       setUser(currentUser);
       setIsAuthenticated(true);
       setIsLoadingAuth(false);
     } catch (error) {
-      console.error('User auth check failed:', error);
+      await queryClientInstance.cancelQueries();
+      queryClientInstance.clear();
       setIsLoadingAuth(false);
       setIsAuthenticated(false);
       setUser(null);
@@ -36,10 +45,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (email, password) => {
-    setIsLoadingAuth(true);
     setAuthError(null);
     try {
       const result = await base44.auth.login(email, password);
+      await queryClientInstance.cancelQueries();
+      queryClientInstance.clear();
       setUser(result.user);
       setIsAuthenticated(true);
       return result.user;
@@ -55,9 +65,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
+    await base44.auth.logout();
+    await queryClientInstance.cancelQueries();
+    queryClientInstance.clear();
     setUser(null);
     setIsAuthenticated(false);
-    await base44.auth.logout().catch(() => {});
   };
 
   const navigateToLogin = () => {

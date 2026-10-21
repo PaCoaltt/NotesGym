@@ -4,15 +4,19 @@ services:
     ports:
       - "8080:8080"
     environment:
-      # Change these before first start. Add more users separated by commas.
-      # Format: email:password,email2:password2
-      NOTESGYM_USERS: "parent@example.com:change-me,student@example.com:change-me-too"
       NOTESGYM_DATA_DIR: "/data"
       # The public browser origin may use HTTPS while the tunnel's HTTP hop does not.
       NOTESGYM_PUBLIC_URL: "${NOTESGYM_PUBLIC_URL:-}"
       NOTESGYM_TRUST_PROXY: "${NOTESGYM_TRUST_PROXY:-false}"
       NOTESGYM_TRUSTED_PROXY_IPS: "${NOTESGYM_TRUSTED_PROXY_IPS:-}"
       NOTESGYM_SECURE_COOKIES: "${NOTESGYM_SECURE_COOKIES:-false}"
+      NOTESGYM_REGISTRATION_ENABLED: "${NOTESGYM_REGISTRATION_ENABLED:-true}"
+      SMTP_HOST: "${SMTP_HOST:-}"
+      SMTP_PORT: "${SMTP_PORT:-587}"
+      SMTP_USER: "${SMTP_USER:-}"
+      SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
+      SMTP_PASSWORD_FILE: "${SMTP_PASSWORD_FILE:-}"
+      SMTP_FROM: "${SMTP_FROM:-}"
     volumes:
       - notesgym-data:/data
     restart: unless-stopped

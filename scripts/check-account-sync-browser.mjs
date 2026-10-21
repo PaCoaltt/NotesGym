@@ -3,10 +3,12 @@ import { pathToFileURL } from 'node:url';
 import { mkdir, mkdtemp } from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { legacyFixture } from '../test/helpers/legacy-fixture.js';
 const { chromium }=await import(process.argv[2]?pathToFileURL(process.argv[2]).href:'playwright');
 await mkdir('.notesgym-test-data',{recursive:true});
 const directory=await mkdtemp(path.join(process.cwd(),'.notesgym-test-data','account-browser-'));
-const child=spawn(process.execPath,['server.js'],{windowsHide:true,env:{...process.env,PORT:'0',NOTESGYM_DATA_DIR:directory,NOTESGYM_USERS:'sync@example.invalid:test-only,other@example.invalid:test-only'},stdio:['ignore','pipe','pipe']});
+await legacyFixture(directory, ['sync@example.invalid', 'other@example.invalid']);
+const child=spawn(process.execPath,['server.js'],{windowsHide:true,env:{...Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(NOTESGYM_|SMTP_)/i.test(key))),PORT:'0',NOTESGYM_DATA_DIR:directory},stdio:['ignore','pipe','pipe']});
 let browser;
 try {
  const base=await new Promise((resolve,reject)=>{let output='';let errors='';const timer=setTimeout(()=>reject(new Error('Server startup timed out')),15000);child.stderr.on('data',chunk=>{errors+=chunk;});child.once('exit',()=>{clearTimeout(timer);reject(new Error(errors));});child.stdout.on('data',chunk=>{output+=chunk;const match=/localhost:(\d+)/.exec(output);if(match){clearTimeout(timer);resolve('http://127.0.0.1:'+match[1]);}});});

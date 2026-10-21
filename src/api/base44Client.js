@@ -12,6 +12,7 @@ async function apiRequest(path, options = {}) {
   const payload = isJson ? await response.json() : null;
 
   if (!response.ok) {
+    if (response.status === 401 && !path.startsWith('/api/auth/')) window.dispatchEvent(new Event('notesgym:session-expired'));
     const error = new Error(payload?.error || "Request failed");
     error.status = response.status;
     error.data = payload;
@@ -23,6 +24,7 @@ async function apiRequest(path, options = {}) {
 
 export const base44 = {
   auth: {
+    action: (action, data) => apiRequest(`/api/auth/${action}`, { method: 'POST', body: JSON.stringify(data) }),
     me: () => apiRequest("/api/auth/me"),
     login: (email, password) =>
       apiRequest("/api/auth/login", {

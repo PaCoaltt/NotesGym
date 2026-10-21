@@ -7,16 +7,21 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { proxyPolicy, rateLimiter, readPublicOrigin } from '../server/security.js';
 
+import { legacyFixture } from './helpers/legacy-fixture.js';
+import { AuthStore } from '../server/auth-store.js';
+
 const publicOrigin = 'https://notesgym.lupachat.ch';
 const note = { matiere: 'Math', note: 4, coefficient: 1, annee: '2026', semestre: 'Semestre 1', date: '2026-09-01' };
 
-async function fixture(t, settings = {}) {
+async function fixture(t, settings = {}, prepare) {
   const root = path.join(process.cwd(), '.notesgym-test-data');
   await mkdir(root, { recursive: true });
   const dir = await mkdtemp(path.join(root, 'web-'));
+  await legacyFixture(dir, ['a@example.invalid', 'b@example.invalid']);
+  if (prepare) await prepare(dir);
   const env = { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.toUpperCase().startsWith('NOTESGYM_'))),
     NODE_ENV: 'production', PORT: '0', NOTESGYM_DATA_DIR: dir,
-    NOTESGYM_USERS: 'a@example.invalid:test-only,b@example.invalid:test-only', ...settings };
+    ...settings };
   let child; let base;
   const stop = async () => {
     if (!child || child.exitCode !== null) return;
@@ -93,12 +98,13 @@ test('HTTPS reverse proxy login, sessions, notes and simulation plans survive wi
     assert.equal(logout.status, 200); assert.match(logout.headers.get('set-cookie'), /Secure; Max-Age=0/);
     assert.equal((await f.request('/api/auth/me', { headers })).status, 401);
     await f.restart();
+    assert.equal((await f.request('/api/auth/me', { headers: { cookie: b.cookie } })).status, 200, 'unrevoked session survives a server process restart');
     const fresh = await f.login();
     const notes = await (await f.request('/api/notes', { headers: { cookie: fresh.cookie } })).json();
     assert.equal(notes.length, 1); assert.equal(notes[0].id, grade.id); assert.equal(notes[0].note, 4);
     assert.equal((await (await f.request('/api/simulation-settings', { headers: { cookie: fresh.cookie } })).json()).plans['2026'].Math.remaining, 4);
     assert.deepEqual(await readFile(path.join(f.dir, 'users.json')), usersBefore, 'existing account IDs, password hashes and salts remain byte-identical');
-    assert.deepEqual((await readdir(f.dir)).sort(), ['notes.json', 'simulation-settings.json', 'users.json']);
+    assert.deepEqual((await readdir(f.dir)).filter(name => name.endsWith('.json')).sort(), ['notes.json', 'simulation-settings.json', 'users.json']);
   });
 });
 
@@ -117,6 +123,9 @@ test('web CSRF checks reject hostile origins, opaque origins, cross-site request
     }
   }
   assert.equal((await f.request('/api/auth/me', { headers: { cookie: a.cookie } })).status, 200, 'hostile logout cannot destroy the session');
+  for (const type of ['text/plain', 'application/x-www-form-urlencoded', 'multipart/form-data']) {
+    assert.equal((await f.request('/api/auth/logout', { method: 'POST', headers: { origin: publicOrigin, cookie: a.cookie, 'content-type': type }, body: {} })).status, 415);
+  }
   assert.deepEqual(await (await f.request('/api/notes', { headers: { cookie: a.cookie } })).json(), []);
   await f.login('a@example.invalid', { 'x-forwarded-proto': 'http', 'x-forwarded-host': 'attacker.invalid' });
   const untrusted = await fixture(t);
@@ -139,7 +148,7 @@ test('removed integration URLs expose no service; classic application pages rema
   for (const route of ['/mcp', '/oauth/auth', '/oauth/token', '/chatgpt', '/chatgpt/interaction/old', '/.well-known/oauth-authorization-server/oauth', '/.well-known/oauth-protected-resource/mcp']) {
     for (const method of ['GET', 'POST']) assert.equal((await f.request(route, { method })).status, 404, method + ' ' + route);
   }
-  for (const route of ['/', '/Dashboard', '/Home', '/Insights', '/Statistics', '/Lab']) assert.equal((await f.request(route)).status, 200, route);
+  for (const route of ['/', '/Dashboard', '/Home', '/Insights', '/Statistics', '/Lab', '/login', '/register', '/verify-email', '/forgot-password', '/reset-password', '/account']) assert.equal((await f.request(route)).status, 200, route);
   assert.deepEqual(await (await f.request('/api/health')).json(), { ok: true });
 });
 
@@ -150,6 +159,7 @@ test('JSON transactions preserve concurrent changes; input limits and corruption
   const created = await Promise.all(Array.from({ length: 20 }, (_, i) => post({ ...note, nom_evaluation: 'synthetic-' + i })));
   assert.ok(created.every(res => res.status === 201));
   const notes = await (await f.request('/api/notes', { headers })).json(); assert.equal(notes.length, 20);
+  assert.ok(notes.every(grade => grade.user_id === a.user.id));
   const patch = body => f.request('/api/notes/' + notes[0].id, { method: 'PATCH', headers, body });
   await Promise.all([patch({ note: 5 }), patch({ coefficient: 3 })]);
   const merged = (await (await f.request('/api/notes', { headers })).json()).find(n => n.id === notes[0].id);
@@ -187,4 +197,35 @@ test('public URL configuration is canonical and fails clearly on malformed origi
   for (const url of ['invalid', 'ftp://example.invalid', publicOrigin + '/path', publicOrigin + '?q=1', publicOrigin + '#fragment', 'https://user:password@example.invalid']) {
     assert.throws(() => readPublicOrigin({ NOTESGYM_PUBLIC_URL: url }), /NOTESGYM_PUBLIC_URL/);
   }
+});
+
+test('historical notes and simulation ownership survive email change through real HTTP; every mutation stays isolated', async t => {
+  let emailToken; let originalId;
+  const f = await fixture(t, { NOTESGYM_PUBLIC_URL: publicOrigin }, async dir => {
+    const store = new AuthStore(path.join(dir, 'auth.sqlite'));
+    const owner = store.byEmail('a@example.invalid'); originalId = owner.id;
+    emailToken = store.issue(owner.id, 'email', 'next@example.invalid');
+    await writeFile(path.join(dir, 'notes.json'), JSON.stringify([{ ...note, id: 'historical', created_by: owner.email, created_date: '2026-01-01', custom_metadata: { preserved: true } }]));
+    store.close();
+  });
+  const a = await f.login(); const b = await f.login('b@example.invalid');
+  const headers = cookie => ({ origin: publicOrigin, cookie });
+  const before = await (await f.request('/api/notes', { headers: headers(a.cookie) })).json();
+  const changed = await f.request('/api/auth/verify-email', { method: 'POST', headers: headers(a.cookie), body: { token: emailToken, kind: 'email' } });
+  assert.equal(changed.status, 200);
+  assert.equal((await f.request('/api/auth/me', { headers: headers(a.cookie) })).status, 401);
+  const next = await f.login('next@example.invalid'); assert.equal(next.user.id, originalId);
+  assert.deepEqual(await (await f.request('/api/notes', { headers: headers(next.cookie) })).json(), before);
+  const plans = await (await f.request('/api/simulation-settings', { headers: headers(next.cookie) })).json();
+  assert.equal(plans.accountId, originalId); assert.ok(plans.plans['2026'].Math);
+  for (const method of ['PATCH', 'DELETE']) assert.equal((await f.request('/api/notes/historical', { method, headers: headers(b.cookie), body: note })).status, 404);
+  for (const [route, body] of [['archive', { years: ['2026'] }], ['subject-report-status', { subject: 'Math', excluded: true }]]) {
+    assert.equal((await f.request('/api/notes/' + route, { method: 'PATCH', headers: headers(b.cookie), body })).status, 200);
+  }
+  assert.deepEqual(await (await f.request('/api/notes', { headers: headers(next.cookie) })).json(), before);
+  const forged = await f.request('/api/notes', { method: 'POST', headers: headers(b.cookie), body: { ...note, user_id: originalId, created_by: 'a@example.invalid' } });
+  const result = await forged.json(); assert.equal(forged.status, 201); assert.equal(result.user_id, b.user.id);
+  assert.equal((await (await f.request('/api/notes', { headers: headers(next.cookie) })).json()).length, 1);
+  await f.restart();
+  assert.deepEqual(await (await f.request('/api/notes', { headers: headers(next.cookie) })).json(), before);
 });
