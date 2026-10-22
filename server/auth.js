@@ -108,7 +108,10 @@ export class AuthService {
       s.transaction(() => {
         s.token(body.token, 'reset');
         s.db.prepare('UPDATE users SET password=? WHERE id=?').run(password, record.user_id);
-        s.revoke(record.user_id); s.clearTokens(record.user_id);
+        // Password recovery invalidates credential-changing links, including an
+        // email change authorized by the old password. Proof of the unchanged
+        // current email address is independent and remains usable until expiry.
+        s.revoke(record.user_id); s.clearTokens(record.user_id, ['reset', 'email']);
       });
       this.mail(s.byId(record.user_id).email, 'password');
       return { data: { message: 'Mot de passe modifié. Reconnectez-vous.' }, headers: { 'set-cookie': this.cookie(req) } };
@@ -117,7 +120,7 @@ export class AuthService {
     if (!await passwordMatches(body.currentPassword, user.password)) throw httpError(401, 'Mot de passe actuel incorrect.');
     if (action === 'change-password') {
       const password = await passwordHash(newPassword(body.password, body.confirmPassword));
-      s.transaction(() => { s.db.prepare('UPDATE users SET password=? WHERE id=?').run(password, user.id); s.revoke(user.id); s.clearTokens(user.id); });
+      s.transaction(() => { s.db.prepare('UPDATE users SET password=? WHERE id=?').run(password, user.id); s.revoke(user.id); s.clearTokens(user.id, ['reset', 'email']); });
       this.mail(user.email, 'password');
       return { data: { message: 'Mot de passe modifié. Reconnectez-vous.' }, headers: { 'set-cookie': this.cookie(req) } };
     }

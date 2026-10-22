@@ -1,8 +1,9 @@
-import { BarChart3, CircleHelp, Database, FlaskConical, History, Lightbulb, Search, Settings, Sparkles } from "lucide-react";
+import { BarChart3, CircleHelp, Database, FlaskConical, History, Lightbulb, Search, Settings, Sparkles, UserRound } from "lucide-react";
 import { MenuButton } from "./MenuPrimitives";
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 export default function MenuHome({ t, statisticsTitle, labTitle, onNavigate, onInsights, onStatistics, onLab }) {
+  const navigate = useNavigate();
   return <div className="space-y-3">
     <MenuButton icon={Lightbulb} onClick={onInsights} prominent>{t.insights}</MenuButton>
     <MenuButton icon={BarChart3} onClick={onStatistics} prominent>{statisticsTitle}</MenuButton>
@@ -12,7 +13,7 @@ export default function MenuHome({ t, statisticsTitle, labTitle, onNavigate, onI
     <MenuButton icon={History} onClick={() => onNavigate("replay")}>{t.replay}</MenuButton>
     <MenuButton icon={Sparkles} onClick={() => onNavigate("dreamGrades")}>{t.dreamGrades}</MenuButton>
     <div className="space-y-2 border-t border-[#c8ced6] pt-4">
-      <Link to="/account" className="block min-h-11 rounded-xl px-4 py-3 font-semibold text-[#5a6a7a]">Mon compte</Link>
+      <MenuButton icon={UserRound} onClick={() => navigate('/account')} chevron>Mon compte</MenuButton>
       <MenuButton icon={Settings} onClick={() => onNavigate("preferences")} chevron>{t.preferences}</MenuButton>
       <MenuButton icon={Database} onClick={() => onNavigate("data")} chevron>{t.data}</MenuButton>
       <MenuButton icon={CircleHelp} onClick={() => onNavigate("help")} chevron>{t.help}</MenuButton>

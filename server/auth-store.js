@@ -93,7 +93,13 @@ export class AuthStore {
   }
   logout(token) { if (token) this.db.prepare('DELETE FROM sessions WHERE hash=?').run(digest(token)); }
   revoke(id) { this.db.prepare('DELETE FROM sessions WHERE user_id=?').run(id); }
-  clearTokens(id) { this.db.prepare('DELETE FROM tokens WHERE user_id=?').run(id); }
+  clearTokens(id, kinds) {
+    if (kinds === undefined) this.db.prepare('DELETE FROM tokens WHERE user_id=?').run(id);
+    else {
+      const remove = this.db.prepare('DELETE FROM tokens WHERE user_id=? AND kind=?');
+      for (const kind of kinds) remove.run(id, kind);
+    }
+  }
   issue(id, kind, email) {
     const token = randomToken();
     this.db.prepare('DELETE FROM tokens WHERE user_id=? AND kind=?').run(id, kind);
@@ -110,6 +116,8 @@ export class AuthStore {
   limit(key, count, windowMs) {
     return this.transaction(() => {
       const now = this.now();
+      // Fixed window: its start is (until - windowMs). Conflicts increment only
+      // count, never until; an expired row is removed before inserting a new one.
       this.db.prepare('DELETE FROM limits WHERE until<=?').run(now);
       // Bound storage even under arbitrary account/address input.
       if (!this.db.prepare('SELECT 1 FROM limits WHERE key=?').get(key) && this.db.prepare('SELECT count(*) AS n FROM limits').get().n >= 20000) return false;

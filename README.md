@@ -33,6 +33,8 @@ pnpm start
 
 Lancer Vite avec `pnpm dev` pour le frontend. Les paramètres de compte sont accessibles depuis le menu du dashboard, ou directement sur `/account`.
 
+Le bouton **Mon compte** du menu **Options** (bouton **Plus…** sur mobile) ouvre la gestion du compte, où se trouve **Se déconnecter**. Voir les [vérifications de déconnexion et d’installation pnpm figée](docs/auth-v2-logout-pnpm.md).
+
 ## Données et sauvegardes
 
 Le volume contient `auth.sqlite` (et éventuellement WAL/SHM), `notes.json`, `simulation-settings.json`, les fichiers historiques `users.json` et les sauvegardes de migration. Ne jamais modifier les propriétaires de notes à la main. Les adresses historiques restent réservées à leur UUID, même après changement d’email.

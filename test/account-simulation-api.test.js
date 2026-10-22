@@ -10,7 +10,7 @@ import { legacyFixture } from './helpers/legacy-fixture.js';
 const baseNote = { matiere: "Math", note: 4, coefficient: 1, annee: "My year", semestre: "Semestre 1", date: "2026-09-01" };
 async function startServer(directory) {
   const child = spawn(process.execPath, ["server.js"], { cwd: process.cwd(), windowsHide: true,
-    env: { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.toUpperCase().startsWith("NOTESGYM_"))), NODE_ENV: "test", PORT: "0", NOTESGYM_DATA_DIR: directory }, stdio: ["ignore", "pipe", "pipe"] });
+    env: { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(NOTESGYM_|SMTP_)/i.test(key))), NODE_ENV: "test", PORT: "0", NOTESGYM_DATA_DIR: directory }, stdio: ["ignore", "pipe", "pipe"] });
   const base = await new Promise((resolve, reject) => {
     let output = ""; let errors = "";
     const timeout = setTimeout(() => { child.kill(); reject(new Error("Test server startup timed out")); }, 15000);

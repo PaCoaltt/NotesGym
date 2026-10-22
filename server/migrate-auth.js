@@ -15,7 +15,8 @@ export async function inspectLegacy(directory) {
       if (error.code !== 'ENOENT' || name !== 'simulation-settings.json') throw error;
       bytes[name] = null; // Older installations may not yet have this store.
     }
-    records[name] = bytes[name] ? JSON.parse(bytes[name].toString('utf8')) : [];
+    try { records[name] = bytes[name] ? JSON.parse(bytes[name].toString('utf8')) : []; }
+    catch { throw new Error(`Invalid JSON store: ${name}`); }
     if (!Array.isArray(records[name])) throw new Error(`Expected array: ${name}`);
   }
   const users = records['users.json']; const notes = records['notes.json']; const simulations = records['simulation-settings.json'];

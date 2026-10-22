@@ -2,9 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { request as httpRequest } from 'node:http';
-import { mkdir, mkdtemp, readFile, writeFile, readdir } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile, readdir, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { createServer as createSMTPServer } from 'node:net';
 import { proxyPolicy, rateLimiter, readPublicOrigin } from '../server/security.js';
 
 import { legacyFixture } from './helpers/legacy-fixture.js';
@@ -19,10 +20,10 @@ async function fixture(t, settings = {}, prepare) {
   const dir = await mkdtemp(path.join(root, 'web-'));
   await legacyFixture(dir, ['a@example.invalid', 'b@example.invalid']);
   if (prepare) await prepare(dir);
-  const env = { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.toUpperCase().startsWith('NOTESGYM_'))),
+  const env = { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(NOTESGYM_|SMTP_)/i.test(key))),
     NODE_ENV: 'production', PORT: '0', NOTESGYM_DATA_DIR: dir,
     ...settings };
-  let child; let base;
+  let child; let base; let diagnostics = '';
   const stop = async () => {
     if (!child || child.exitCode !== null) return;
     await new Promise(resolve => { child.once('exit', resolve); child.kill(); });
@@ -33,7 +34,7 @@ async function fixture(t, settings = {}, prepare) {
     base = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => { child.kill(); reject(new Error('Startup timed out')); }, 15000);
       let output = ''; let errors = '';
-      child.stderr.on('data', chunk => { errors += chunk; });
+      child.stderr.on('data', chunk => { errors += chunk; diagnostics += chunk; });
       child.once('exit', () => { clearTimeout(timeout); reject(new Error('Startup failed: ' + errors)); });
       child.stdout.on('data', chunk => {
         output += chunk;
@@ -68,7 +69,12 @@ async function fixture(t, settings = {}, prepare) {
     assert.equal(res.status, 200, await res.clone().text());
     return { cookie: res.headers.get('set-cookie').split(';')[0], user: (await res.json()).user, headers: res.headers };
   };
-  return { request, login, dir, restart: async () => { await stop(); await start(); } };
+  const waitForDiagnostic = predicate => new Promise((resolve, reject) => {
+    const check = () => { if (predicate(diagnostics)) { clearTimeout(timer); child.stderr.off('data', check); resolve(); } };
+    const timer = setTimeout(() => { child.stderr.off('data', check); reject(new Error('Expected diagnostic not received')); }, 10000);
+    child.stderr.on('data', check); check();
+  });
+  return { request, login, dir, waitForDiagnostic, get diagnostics() { return diagnostics; }, restart: async () => { await stop(); await start(); } };
 }
 
 test('HTTPS reverse proxy login, sessions, notes and simulation plans survive without OAuth', async t => {
@@ -228,4 +234,91 @@ test('historical notes and simulation ownership survive email change through rea
   assert.equal((await (await f.request('/api/notes', { headers: headers(next.cookie) })).json()).length, 1);
   await f.restart();
   assert.deepEqual(await (await f.request('/api/notes', { headers: headers(next.cookie) })).json(), before);
+});
+
+test('a notes store disappearing at runtime is never treated as empty or recreated by a mutation', async t => {
+  const f = await fixture(t, { NOTESGYM_PUBLIC_URL: publicOrigin }); const a = await f.login();
+  const headers = { origin: publicOrigin, cookie: a.cookie };
+  assert.equal((await f.request('/api/notes', { method: 'POST', headers, body: note })).status, 201);
+  const filename = path.join(f.dir, 'notes.json'); const snapshot = await readFile(filename);
+  await unlink(filename);
+  const post = await f.request('/api/notes', { method: 'POST', headers, body: note });
+  assert.equal(post.status, 500);
+  assert.equal((await f.request('/api/notes', { headers })).status, 500);
+  assert.equal((await f.request('/api/simulation-settings', { headers })).status, 500);
+  await assert.rejects(readFile(filename), { code: 'ENOENT' });
+  await writeFile(filename, snapshot);
+  assert.equal((await (await f.request('/api/notes', { headers })).json()).length, 1);
+});
+
+test('real local SMTP TLS failure leaves HTTP responses generic, permits resend, and logs no credentials or token', async t => {
+  const sockets = new Set(); let connections = 0;
+  // Loopback-only rejecting SMTP server. No message or recipient ever leaves the test.
+  const smtp = createSMTPServer(socket => {
+    connections++; sockets.add(socket); socket.on('close', () => sockets.delete(socket)); socket.on('error', () => {});
+    socket.write('220 synthetic-smtp ESMTP\r\n');
+    let buffer = '';
+    socket.on('data', chunk => {
+      buffer += chunk.toString();
+      let end;
+      while ((end = buffer.indexOf('\r\n')) !== -1) {
+        const command = buffer.slice(0, end); buffer = buffer.slice(end + 2);
+        if (command.startsWith('EHLO')) socket.write('250-synthetic-smtp\r\n250 HELP\r\n');
+        else if (command === 'STARTTLS') socket.write('454 Synthetic TLS unavailable\r\n');
+        else socket.end('221 Goodbye\r\n');
+      }
+    });
+  });
+  await new Promise(resolve => smtp.listen(0, '127.0.0.1', resolve));
+  t.after(async () => { for (const socket of sockets) socket.destroy(); await new Promise(resolve => smtp.close(resolve)); });
+  const secret = 'SYNTHETIC_SMTP_PASSWORD'; const password = 'Synthetic HTTP password!';
+  const f = await fixture(t, { NOTESGYM_PUBLIC_URL: publicOrigin, SMTP_HOST: '127.0.0.1', SMTP_PORT: String(smtp.address().port), SMTP_USER: 'SYNTHETIC_SMTP_USER', SMTP_PASSWORD: secret, SMTP_FROM: 'sender@example.invalid' });
+  const post = (action, body) => f.request('/api/auth/' + action, { method: 'POST', headers: { origin: publicOrigin }, body });
+  const registered = await post('register', { email: 'new@example.invalid', password, confirmPassword: password });
+  const duplicate = await post('register', { email: 'NEW@example.invalid', password, confirmPassword: password });
+  assert.equal(registered.status, 200); assert.equal(duplicate.status, 200);
+  assert.deepEqual(await duplicate.json(), await registered.json());
+  await f.waitForDiagnostic(logs => logs.includes('transactional email delivery failed'));
+  for (const action of ['resend-verification', 'forgot-password']) {
+    const known = await post(action, { email: 'new@example.invalid' });
+    const unknown = await post(action, { email: 'missing@example.invalid' });
+    assert.equal(known.status, 200); assert.equal(unknown.status, 200);
+    assert.deepEqual(await known.json(), await unknown.json());
+  }
+  await f.waitForDiagnostic(logs => (logs.match(/transactional email delivery failed/g) || []).length === 3);
+  assert.equal(connections, 3);
+  for (const privateValue of [secret, 'SYNTHETIC_SMTP_USER', password, 'new@example.invalid', 'missing@example.invalid', '#token=']) assert.ok(!f.diagnostics.includes(privateValue));
+  assert.ok(!/[a-f0-9]{64}/.test(f.diagnostics), 'no raw token or hash in diagnostics');
+  assert.equal((await f.request('/api/health')).status, 200);
+  assert.equal((await post('login', { email: 'new@example.invalid', password })).status, 403);
+});
+
+test('logout expires its cookie and revokes only that session across protected APIs and restart', async t => {
+  const f = await fixture(t, { NOTESGYM_PUBLIC_URL: publicOrigin });
+  const session = await f.login(); const otherDevice = await f.login();
+  const headers = { origin: publicOrigin, cookie: session.cookie };
+  const created = await f.request('/api/notes', { method: 'POST', headers, body: note });
+  assert.equal(created.status, 201); const grade = await created.json();
+  assert.equal((await f.request('/api/simulation-settings', { headers })).status, 200);
+  const filenames = ['users.json', 'notes.json', 'simulation-settings.json'];
+  const snapshots = await Promise.all(filenames.map(name => readFile(path.join(f.dir, name))));
+  const logout = await f.request('/api/auth/logout', { method: 'POST', headers, body: {} });
+  assert.equal(logout.status, 200);
+  assert.match(logout.headers.get('set-cookie'), /^notesgym_session=; HttpOnly; SameSite=Lax; Path=\/; Secure; Max-Age=0$/);
+  for (const endpoint of ['/api/auth/me', '/api/notes', '/api/simulation-settings']) {
+    assert.equal((await f.request(endpoint, { headers })).status, 401, 'replayed cookie: ' + endpoint);
+  }
+  for (const [endpoint, method, body] of [
+    ['/api/notes', 'POST', note], ['/api/notes/' + grade.id, 'PATCH', { note: 6 }], ['/api/notes/' + grade.id, 'DELETE', {}],
+    ['/api/notes/archive', 'PATCH', { years: ['2026'] }], ['/api/notes/subject-report-status', 'PATCH', { subject: 'Math', excluded: true }],
+    ['/api/simulation-settings', 'PATCH', { accountId: session.user.id, requestId: randomUUID(), changes: {} }],
+    ['/api/simulation-settings/migrate', 'POST', { accountId: session.user.id, plans: {} }],
+  ]) assert.equal((await f.request(endpoint, { method, headers, body })).status, 401, endpoint);
+  assert.equal((await f.request('/api/auth/logout', { method: 'POST', headers, body: {} })).status, 200, 'logout is idempotent');
+  assert.equal((await f.request('/api/auth/me', { headers: { cookie: otherDevice.cookie } })).status, 200);
+  await f.restart();
+  assert.equal((await f.request('/api/notes', { headers })).status, 401, 'revocation survives a process restart');
+  const remaining = await f.request('/api/notes', { headers: { cookie: otherDevice.cookie } });
+  assert.equal(remaining.status, 200); assert.equal((await remaining.json())[0].id, grade.id);
+  for (let i = 0; i < filenames.length; i++) assert.deepEqual(await readFile(path.join(f.dir, filenames[i])), snapshots[i], filenames[i] + ' is unchanged by logout');
 });

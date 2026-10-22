@@ -10,7 +10,7 @@ Le [rapport d’audit](auth-v2-audit.md) explique l’évaluation de Better Auth
 
 Les mots de passe nouveaux utilisent scrypt asynchrone avec sel aléatoire, N=32768,r=8,p=3,64 octets (64 Mio de plafond mémoire pour le calcul). Ce compromis figure parmi ceux proposés par [OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html). Les mots de passe historiques sont vérifiés avec leurs paramètres originaux puis leur hachage est renforcé lors d’une connexion réussie ; aucune réinitialisation automatique.
 
-Sessions : 30 jours d’expiration absolue, empreinte SHA-256 d’un secret aléatoire de 256 bits ; cookie HttpOnly, SameSite=Lax, Path=/, Secure si origine HTTPS ou override. Une session survit au redémarrage. Déconnexion révoque la session ; changement/réinitialisation de mot de passe et confirmation d’un changement d’email révoquent toutes les sessions et jetons du compte.
+Sessions : 30 jours d’expiration absolue, empreinte SHA-256 d’un secret aléatoire de 256 bits ; cookie HttpOnly, SameSite=Lax, Path=/, Secure si origine HTTPS ou override. Une session survit au redémarrage. Déconnexion révoque la session. Changement/réinitialisation de mot de passe : toutes les sessions et les liens de récupération/changement d’email sont révoqués ; la preuve de possession de l’adresse actuelle reste valide jusqu’à expiration ou consommation. Confirmation d’un changement d’email : toutes les sessions et tous les jetons du compte sont révoqués, car les liens précédents ne doivent plus agir sur la nouvelle identité.
 
 Jetons : 256 bits aléatoires, seule l’empreinte est en base. Vérification/changement email : 24 h. Récupération : 30 min. Usage unique, vérification et consommation en transaction ; un renvoi invalide le précédent lien du même type. Lien en fragment URL pour éviter les logs HTTP, puis retrait du fragment dans le navigateur. Confirmation par bouton POST : un scanner de liens GET ne consomme rien. Après rechargement, rouvrir le lien email si le jeton a disparu.
 
@@ -138,6 +138,8 @@ Les tests auth utilisent exclusivement `.notesgym-test-data` et un transport ema
 Limites : 2FA/TOTP non implémentée (ajout futur d’une table de facteurs par UUID et challenge avant session) ; pas de suppression de compte ni de fusion/récupération administrative automatisée ; aucune migration des données JSON métier en SQLite ; un seul écrivain par volume local ; emails sans file durable de reprise ; pas de garantie de délivrabilité sans qualification du relais ; pas encore de validation matérielle Pi/ARM64 dans cet environnement sans Docker. Les adresses anciennes restent réservées intentionnellement. Les durées et quotas sont des constantes explicites ; les ajuster demande une revue et des tests.
 
 ## Résultats locaux du 21 octobre 2026
+
+Ces résultats initiaux sont complétés par la [revue de sécurité du 22 octobre](auth-v2-security-review.md), qui consigne les corrections ciblées, les tests supplémentaires et les vérifications actuelles.
 
 - `node --test` : **80 tests réussis, 0 échec**, environ 19,4 s (le total du runner inclut le chargement du module de fixtures).
 - Build Vite : réussi, 3579 modules. Avertissement de taille du bundle >500 ko ; pas d’erreur de compilation.

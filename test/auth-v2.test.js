@@ -115,7 +115,7 @@ test('password recovery hides account existence, expires, consumes once and revo
   assert.ok(f.messages.some(message => message.subject.includes('mot de passe a été modifié')));
 });
 
-test('password change requires current password and invalidates sessions plus all outstanding links', async t => {
+test('password change requires current password and invalidates sessions plus credential-changing links', async t => {
   const f = await fixture(t); const session = await f.verified();
   await f.call('forgot-password', { email: 'new@example.invalid' }); const reset = f.link('reset');
   await rejectsStatus(f.call('change-password', { currentPassword: 'wrong', password, confirmPassword: password }, session.cookie), 401);
@@ -274,5 +274,171 @@ test('server refuses unmigrated/corrupt/missing historical stores and retired se
     if (variant === 'corrupt') assert.equal(await fs.readFile(notesFile, 'utf8'), '{synthetic-corruption');
     if (variant === 'unmigrated') await assert.rejects(fs.access(path.join(dir, 'auth.sqlite')));
     const release = await lockData(dir); await release();
+  }
+});
+
+test('token replacement and initial verification preserve independent token types', async t => {
+  const f = await fixture(t); await f.register('new@example.invalid');
+  const user = f.store.byEmail('new@example.invalid');
+  const verify = f.link('verify');
+  const reset = f.store.issue(user.id, 'reset', user.email);
+  const email = f.store.issue(user.id, 'email', 'next@example.invalid');
+  await f.call('resend-verification', { email: user.email });
+  await rejectsStatus(f.call('verify-email', verify), 400);
+  assert.equal(f.store.token(reset, 'reset').user_id, user.id);
+  assert.equal(f.store.token(email, 'email').user_id, user.id);
+  await rejectsStatus(f.call('verify-email', { token: reset, kind: 'verify' }), 400);
+  await f.call('verify-email', f.link('verify'));
+  assert.equal(f.store.token(reset, 'reset').user_id, user.id);
+  assert.equal(f.store.token(email, 'email').user_id, user.id);
+});
+
+test('password reset preserves current-address verification but revokes reset, email-change links and all sessions', async t => {
+  const f = await fixture(t, { legacy: true }); const user = f.users[0];
+  const session = await f.call('login', { email: user.email, password });
+  const verify = f.store.issue(user.id, 'verify', user.email);
+  const reset = f.store.issue(user.id, 'reset', user.email);
+  const email = f.store.issue(user.id, 'email', 'next@example.invalid');
+  await f.call('reset-password', { token: reset, password: password + 'next', confirmPassword: password + 'next' });
+  await rejectsStatus(f.call('me', {}, session.cookie), 401);
+  assert.throws(() => f.store.token(reset, 'reset'), { status: 400 });
+  assert.throws(() => f.store.token(email, 'email'), { status: 400 });
+  await f.call('verify-email', { token: verify, kind: 'verify' });
+  assert.equal(f.store.byId(user.id).email_verified, 1);
+});
+
+test('password change preserves current-address verification and cancels other credential links', async t => {
+  const f = await fixture(t, { legacy: true }); const user = f.users[0];
+  const session = await f.call('login', { email: user.email, password });
+  const verify = f.store.issue(user.id, 'verify', user.email);
+  const reset = f.store.issue(user.id, 'reset', user.email);
+  const email = f.store.issue(user.id, 'email', 'next@example.invalid');
+  await f.call('change-password', { currentPassword: password, password: password + 'next', confirmPassword: password + 'next' }, session.cookie);
+  await rejectsStatus(f.call('me', {}, session.cookie), 401);
+  for (const [token, kind] of [[reset, 'reset'], [email, 'email']]) assert.throws(() => f.store.token(token, kind), { status: 400 });
+  await f.call('verify-email', { token: verify, kind: 'verify' });
+});
+
+test('email confirmation invalidates every old-address link and sessions only when committed', async t => {
+  const f = await fixture(t, { legacy: true }); const user = f.users[0];
+  const session = await f.call('login', { email: user.email, password });
+  const verify = f.store.issue(user.id, 'verify', user.email);
+  const reset = f.store.issue(user.id, 'reset', user.email);
+  await f.call('change-email', { currentPassword: password, email: 'next@example.invalid' }, session.cookie);
+  assert.equal((await f.call('me', {}, session.cookie)).data.email, user.email);
+  assert.ok(f.store.token(verify, 'verify')); assert.ok(f.store.token(reset, 'reset'));
+  await f.call('verify-email', f.link('email'));
+  assert.throws(() => f.store.token(verify, 'verify'), { status: 400 });
+  assert.throws(() => f.store.token(reset, 'reset'), { status: 400 });
+  await rejectsStatus(f.call('me', {}, session.cookie), 401);
+  assert.equal(f.store.byId(user.id).email, 'next@example.invalid');
+});
+
+test('concurrent resets and email verifications can each consume a token only once', async t => {
+  const f = await fixture(t); await f.register('new@example.invalid');
+  const verification = f.link('verify');
+  const verifyResults = await Promise.allSettled([f.call('verify-email', verification), f.call('verify-email', verification)]);
+  assert.equal(verifyResults.filter(result => result.status === 'fulfilled').length, 1);
+  assert.equal(verifyResults.find(result => result.status === 'rejected').reason.status, 400);
+  const user = f.store.byEmail('new@example.invalid');
+  const reset = f.store.issue(user.id, 'reset', user.email);
+  const passwords = [password + 'first', password + 'second'];
+  const results = await Promise.allSettled(passwords.map(next => f.call('reset-password', { token: reset, password: next, confirmPassword: next })));
+  assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+  assert.equal(results.find(result => result.status === 'rejected').reason.status, 400);
+  const winner = results.findIndex(result => result.status === 'fulfilled');
+  assert.equal(await passwordMatches(passwords[winner], f.store.byId(user.id).password), true);
+  assert.equal(f.messages.filter(message => message.subject.includes('mot de passe a été modifié')).length, 1);
+});
+
+test('email confirmation cancels a reset already hashing its new password', async t => {
+  const f = await fixture(t, { legacy: true }); const user = f.users[0];
+  const reset = f.store.issue(user.id, 'reset', user.email);
+  const email = f.store.issue(user.id, 'email', 'next@example.invalid');
+  const results = await Promise.allSettled([
+    f.call('reset-password', { token: reset, password: password + 'next', confirmPassword: password + 'next' }),
+    f.call('verify-email', { token: email, kind: 'email' }),
+  ]);
+  assert.equal(results[0].status, 'rejected'); assert.equal(results[0].reason.status, 400);
+  assert.equal(results[1].status, 'fulfilled');
+  assert.equal(await passwordMatches(password, f.store.byId(user.id).password), true);
+});
+
+test('SMTP rejection or synchronous failure is contained, logs no secret, and resend recovers', async t => {
+  const f = await fixture(t); const messages = []; const logs = [];
+  t.mock.method(console, 'error', (...args) => logs.push(args.join(' ')));
+  let attempt = 0;
+  f.auth.mailer.send = message => {
+    messages.push(message); attempt++;
+    const error = new Error('SYNTHETIC-SMTP-SECRET ' + message.text);
+    if (attempt === 1) throw error;
+    if (attempt === 2) return Promise.reject(error);
+    return Promise.resolve();
+  };
+  const result = await f.register('new@example.invalid');
+  const token = /token=([a-f0-9]{64})/.exec(messages[0].text)[1];
+  const user = f.store.byEmail('new@example.invalid');
+  const reset = f.store.issue(user.id, 'reset', user.email);
+  const unknown = await f.call('resend-verification', { email: 'missing@example.invalid' });
+  const retry = await f.call('resend-verification', { email: user.email });
+  assert.deepEqual(retry.data, unknown.data); assert.deepEqual(retry.data, result.data);
+  const failedRetry = /token=([a-f0-9]{64})/.exec(messages[1].text)[1];
+  await f.call('resend-verification', { email: user.email });
+  const delivered = /token=([a-f0-9]{64})/.exec(messages[2].text)[1];
+  assert.equal(f.auth.mailJobs.size, 0);
+  assert.equal(logs.length, 2);
+  for (const secret of ['SYNTHETIC-SMTP-SECRET', user.email, token, reset, failedRetry, delivered, password]) assert.ok(!logs.join('\n').includes(secret));
+  assert.throws(() => f.store.token(token, 'verify'), { status: 400 });
+  assert.throws(() => f.store.token(failedRetry, 'verify'), { status: 400 });
+  assert.ok(f.store.token(reset, 'reset'));
+  await f.call('verify-email', { token: delivered, kind: 'verify' });
+  assert.equal(f.store.byId(user.id).email_verified, 1);
+});
+
+test('undelivered verification and recovery tokens still expire at their exact deadlines', async t => {
+  const f = await fixture(t); const messages = [];
+  t.mock.method(console, 'error', () => {});
+  f.auth.mailer.send = async message => { messages.push(message); throw new Error('Synthetic delivery failure'); };
+  await f.register('new@example.invalid'); await f.call('forgot-password', { email: 'new@example.invalid' });
+  const verify = /token=([a-f0-9]{64})/.exec(messages[0].text)[1];
+  const reset = /token=([a-f0-9]{64})/.exec(messages[1].text)[1];
+  f.advance(1800000);
+  assert.throws(() => f.store.token(reset, 'reset'), { status: 400 }); assert.ok(f.store.token(verify, 'verify'));
+  f.advance(86400000 - 1800000);
+  assert.throws(() => f.store.token(verify, 'verify'), { status: 400 });
+  assert.equal(f.auth.mailJobs.size, 0);
+});
+
+test('malformed migration input does not expose its contents in diagnostic errors', async () => {
+  const dir = await temp(); await legacyFixture(dir, ['a@example.invalid'], { migrate: false });
+  const secret = 'SYNTHETIC_PRIVATE_NOTE_DATA';
+  await fs.writeFile(path.join(dir, 'notes.json'), secret);
+  await assert.rejects(inspectLegacy(dir), error => !error.message.includes('SYNTHETIC_') && error.message.includes('notes.json'));
+});
+
+test('login email normalization and changing IP cannot evade a persistent account quota', async t => {
+  const f = await fixture(t); await f.register('new@example.invalid');
+  for (let i = 0; i < 20; i++) f.store.limit('account:login:' + digest('new@example.invalid'), 20, 600000);
+  await rejectsStatus(f.call('login', { email: '  NEW@example.invalid  ', password }), 429);
+  await rejectsStatus(f.call('login', { email: 'new@example.invalid', password }, undefined, '192.0.2.99'), 429);
+  await rejectsStatus(f.call('login', { email: 'different@example.invalid', password }), 401);
+  assert.ok((await f.call('forgot-password', { email: 'NEW@example.invalid' })).data.message);
+});
+
+test('startup and migration CLI diagnostics never print fragments of a malformed private store', async () => {
+  const dir = await temp(); await legacyFixture(dir, ['a@example.invalid']);
+  const marker = 'SYNTHETIC_PRIVATE_NOTE_DATA'; await fs.writeFile(path.join(dir, 'notes.json'), marker);
+  for (const args of [['server.js'], ['server/migrate-auth.js', '--data-dir=' + dir]]) {
+    const result = await new Promise((resolve, reject) => {
+      const child = spawn(process.execPath, args, { windowsHide: true,
+        env: { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(NOTESGYM_|SMTP_)/i.test(key))), PORT: '0', NOTESGYM_DATA_DIR: dir }, stdio: ['ignore', 'pipe', 'pipe'] });
+      let output = ''; child.stdout.on('data', chunk => { output += chunk; }); child.stderr.on('data', chunk => { output += chunk; });
+      const timer = setTimeout(() => { child.kill(); reject(new Error('Expected safe refusal')); }, 10000);
+      child.once('exit', code => { clearTimeout(timer); resolve({ code, output }); });
+      child.on('error', reject);
+    });
+    assert.notEqual(result.code, 0); assert.ok(result.output.includes('notes.json'));
+    assert.ok(!result.output.includes('SYNTHETIC_'));
+    assert.equal(await fs.readFile(path.join(dir, 'notes.json'), 'utf8'), marker);
   }
 });

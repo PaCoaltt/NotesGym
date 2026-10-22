@@ -80,6 +80,58 @@ try {
     await page.getByRole('button', { name: 'Se déconnecter', exact: true }).click();
     await page.waitForURL(base + '/login');
     assert.equal((await context.request.get(base + '/api/auth/me')).status(), 401);
+    // Account uses the same menu button as Preferences, with keyboard navigation.
+    // Logout remains available only on the account page, including failure/retry.
+    assert.equal((await context.request.post(base + '/api/auth/login', { data: { email: users[0].email, password } })).status(), 200);
+    const oldCookie = (await context.cookies()).find(cookie => cookie.name === 'notesgym_session');
+    assert.ok(oldCookie);
+    await page.goto(base + '/Dashboard');
+    await page.getByRole('button', { name: viewport.width < 768 ? 'Plus…' : 'Ouvrir les options', exact: true }).click();
+    const menu = page.getByRole('dialog', { name: 'Options', exact: true });
+    const accountButton = menu.getByRole('button', { name: 'Mon compte', exact: true });
+    await accountButton.waitFor();
+    await page.waitForFunction(() => {
+      const panel = document.querySelector('aside[role="dialog"]');
+      return panel && Math.abs(panel.getBoundingClientRect().right - innerWidth) < 1 &&
+        [...panel.querySelectorAll('[style]')].every(element => Number(getComputedStyle(element).opacity) >= 0.99);
+    });
+    await accountButton.scrollIntoViewIfNeeded();
+    assert.equal(await menu.getByRole('button', { name: 'Se déconnecter', exact: true }).count(), 0);
+    const preferences = menu.getByRole('button', { name: 'Préférences', exact: true });
+    assert.equal(await accountButton.getAttribute('class'), await preferences.getAttribute('class'));
+    assert.equal(await accountButton.evaluate(element => element.style.boxShadow), await preferences.evaluate(element => element.style.boxShadow));
+    assert.equal(await accountButton.locator('svg').count(), 2, 'user icon and chevron');
+    const accountBounds = await accountButton.boundingBox(); const preferencesBounds = await preferences.boundingBox();
+    assert.equal(accountBounds.width, preferencesBounds.width); assert.equal(accountBounds.height, preferencesBounds.height);
+    assert.ok(accountBounds.y < preferencesBounds.y, 'Account precedes Preferences');
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Menu must fit viewport');
+    await page.screenshot({ path: path.join(directory, `account-menu-${viewport.width}.png`), fullPage: true });
+    await accountButton.focus();
+    await accountButton.press(viewport.width === 390 ? 'Enter' : 'Space');
+    await page.waitForURL(base + '/account');
+    await page.getByRole('heading', { name: 'Mon compte', exact: true }).waitFor();
+    assert.equal(await page.getByRole('button', { name: 'Se déconnecter', exact: true }).count(), 1);
+    await page.route('**/api/auth/logout', route => route.fulfill({ status: 503, json: { error: 'Indisponibilité simulée. Réessayez.' } }));
+    await page.getByRole('button', { name: 'Se déconnecter', exact: true }).click();
+    await page.getByRole('alert').filter({ hasText: 'Indisponibilité simulée' }).waitFor();
+    assert.equal((await context.request.get(base + '/api/auth/me')).status(), 200);
+    assert.equal(new URL(page.url()).pathname, '/account');
+    await page.unroute('**/api/auth/logout');
+    let finishLogout;
+    const pendingLogout = new Promise(resolve => { finishLogout = resolve; });
+    await page.route('**/api/auth/logout', async route => { await pendingLogout; await route.continue(); });
+    await page.getByRole('button', { name: 'Se déconnecter', exact: true }).click();
+    assert.equal(await page.getByRole('button', { name: 'Se déconnecter', exact: true }).isDisabled(), true);
+    finishLogout();
+    await page.waitForURL(base + '/login');
+    await page.getByRole('heading', { name: 'Connexion', exact: true }).waitFor();
+    assert.equal((await context.cookies()).find(cookie => cookie.name === 'notesgym_session'), undefined);
+    for (const endpoint of ['/api/auth/me', '/api/notes', '/api/simulation-settings']) {
+      assert.equal((await fetch(base + endpoint, { headers: { cookie: 'notesgym_session=' + oldCookie.value } })).status, 401, 'revoked browser cookie: ' + endpoint);
+    }
+    await page.reload();
+    await page.getByRole('heading', { name: 'Connexion', exact: true }).waitFor();
+    await page.unroute('**/api/auth/logout');
     await page.goto(base + '/forgot-password');
     await page.getByLabel('Adresse email').fill('unknown@example.invalid');
     await page.getByRole('button', { name: 'Envoyer le lien', exact: true }).click();

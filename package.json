@@ -14,7 +14,7 @@
     "preview": "vite preview",
     "start": "node server.js",
     "auth:migrate": "node server/migrate-auth.js",
-    "test:auth": "node --test test/auth-v2.test.js test/server-web.test.js test/account-simulation-api.test.js"
+    "test:auth": "node --test test/auth-limits.test.js test/auth-v2.test.js test/server-web.test.js test/account-simulation-api.test.js"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^17.0.0",

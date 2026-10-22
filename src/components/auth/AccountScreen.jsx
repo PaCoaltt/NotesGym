@@ -15,7 +15,7 @@ export default function AccountScreen() {
     const form = event.currentTarget;
     const data = form.tagName === 'FORM' ? Object.fromEntries(new FormData(form)) : {};
     try {
-      if (action === 'logout') { await logout(); navigate('/login'); }
+      if (action === 'logout') { await logout(); navigate('/login', { replace: true }); }
       else {
         const result = await base44.auth.action(action, action === 'resend-verification' ? { email: user.email } : data);
         form.reset?.(); setMessage(result.message);

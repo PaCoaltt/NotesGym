@@ -53,7 +53,8 @@ async function readJson(file, fallback) {
   try {
     return JSON.parse(await fs.readFile(file, "utf8"));
   } catch (error) {
-    if (error.code === "ENOENT") return fallback;
+    if (error.code === "ENOENT" && fallback !== undefined) return fallback;
+    if (error instanceof SyntaxError) throw new Error(`Invalid JSON store: ${path.basename(file)}`);
     throw error; // Corruption must never silently overwrite an existing store.
   }
 }
@@ -97,7 +98,7 @@ async function initializeAuth() {
     for (const file of [NOTES_FILE, SIMULATION_SETTINGS_FILE]) {
       const optional = !initialized && (!legacySource || JSON.parse(legacySource.value)[path.basename(file)] === null);
       let records;
-      try { records = JSON.parse(await fs.readFile(file, 'utf8')); }
+      try { records = await readJson(file); }
       catch (error) { if (error.code === 'ENOENT' && optional) continue; throw error; }
       if (!Array.isArray(records)) throw new Error('Invalid application store');
     }
@@ -162,11 +163,11 @@ async function requireUser(req, res) {
 let simulationSettingsQueue = Promise.resolve();
 function accountSimulationSettings(user, operation = "read", payload, requestId) {
   const job = async () => {
-    const records = JSON.parse(await fs.readFile(SIMULATION_SETTINGS_FILE, "utf8"));
+    const records = await readJson(SIMULATION_SETTINGS_FILE);
     if (!Array.isArray(records)) throw new Error("Invalid simulation settings store");
     const index = records.findIndex(record => record.user_id === user.id);
     const previous = index < 0 ? { user_id: user.id, plans: {}, revision: 0 } : records[index];
-    const notes = (await readJson(NOTES_FILE, [])).filter(note => authStore.owns(note, user));
+    const notes = (await readJson(NOTES_FILE)).filter(note => authStore.owns(note, user));
     const replay = operation === "patch" && (previous.requestIds || []).includes(requestId);
     const plans = operation === "patch" && !replay ? patchAccountSimulationPlans(previous.plans, notes, payload)
       : operation === "migrate" ? migrateAccountSimulationPlans(previous.plans, notes, payload)
@@ -219,7 +220,7 @@ async function handleApi(req, res, url) {
     if (url.pathname === "/api/notes" && req.method === "GET") {
       const user = await requireUser(req, res);
       if (!user) return;
-      const notes = await readJson(NOTES_FILE, []);
+      const notes = await readJson(NOTES_FILE);
       const ownNotes = notes
         .filter((note) => authStore.owns(note, user))
         .sort((a, b) => String(b.created_date || "").localeCompare(String(a.created_date || "")));
@@ -229,7 +230,7 @@ async function handleApi(req, res, url) {
     if (url.pathname === "/api/notes" && req.method === "POST") {
       const user = await requireUser(req, res);
       if (!user) return;
-      const notes = await readJson(NOTES_FILE, []);
+      const notes = await readJson(NOTES_FILE);
       const now = new Date().toISOString();
       const note = {
         id: crypto.randomUUID(),
@@ -252,7 +253,7 @@ async function handleApi(req, res, url) {
       const subject = String(body.subject || "").trim();
       if (!subject) return sendError(res, 400, "Subject is required");
 
-      const notes = await readJson(NOTES_FILE, []);
+      const notes = await readJson(NOTES_FILE);
       const updatedAt = new Date().toISOString();
       let updatedCount = 0;
       for (const note of notes) {
@@ -276,7 +277,7 @@ async function handleApi(req, res, url) {
         : new Set();
       if (years.size === 0) return sendError(res, 400, "At least one school year is required");
 
-      const notes = await readJson(NOTES_FILE, []);
+      const notes = await readJson(NOTES_FILE);
       const updatedAt = new Date().toISOString();
       let archivedCount = 0;
 
@@ -296,7 +297,7 @@ async function handleApi(req, res, url) {
     if (noteMatch && req.method === "PATCH") {
       const user = await requireUser(req, res);
       if (!user) return;
-      const notes = await readJson(NOTES_FILE, []);
+      const notes = await readJson(NOTES_FILE);
       const id = decodeURIComponent(noteMatch[1]);
       const index = notes.findIndex((note) => note.id === id && authStore.owns(note, user));
       if (index === -1) return sendError(res, 404, "Note not found");
@@ -316,7 +317,7 @@ async function handleApi(req, res, url) {
     if (noteMatch && req.method === "DELETE") {
       const user = await requireUser(req, res);
       if (!user) return;
-      const notes = await readJson(NOTES_FILE, []);
+      const notes = await readJson(NOTES_FILE);
       const id = decodeURIComponent(noteMatch[1]);
       const kept = notes.filter((note) => !(note.id === id && authStore.owns(note, user)));
       if (kept.length === notes.length) return sendError(res, 404, "Note not found");
